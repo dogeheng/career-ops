@@ -2,6 +2,8 @@
 
 <p align="center">The open-source AI job search agent.</p>
 
+> **Lean workflow fork:** pre-screen → buildcv → Chromium sign-in → résumé upload → human submission. [中文安装与使用](docs/LEAN_QUICKSTART.zh-CN.md). Set `pipeline.mode: lean`; keep candidate data local. No eval/score/report prerequisite.
+
 <p align="center">
   <a href="README.md">English</a> |
   <a href="README.es.md">Español</a> |

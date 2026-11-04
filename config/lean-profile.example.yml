@@ -1,0 +1,23 @@
+# Merge confirmed facts into config/profile.yml. null means ask, never false/zero.
+candidate:
+  full_name: null
+  email: null
+pipeline:
+  mode: lean
+screening:
+  countries: [US, CA, SG, AU, GB, IE, DE, FR, NL, CH, NZ, JP, DK, FI, IS, 'NO', SE]
+  employment_types: [fulltime]
+  full_time_years: null
+  graduation_date: null
+  available_from: null
+  us_citizen: null
+  work_authorization: {US: null, CA: null, SG: null, AU: null}
+  future_sponsorship_required: {US: null, CA: null, SG: null, AU: null}
+  # Ingestion uses repository metadata; full JD screening happens per selected job.
+cv:
+  template: jake
+  max_pages: 1
+  strict_pages: true
+  show_location: false
+  projects: auto
+  sections: [education, experience, projects, skills]

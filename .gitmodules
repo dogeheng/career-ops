@@ -1,0 +1,10 @@
+[submodule "data/job-sources/2027-swe-college-jobs"]
+	path = data/job-sources/2027-swe-college-jobs
+	url = https://github.com/speedyapply/2027-SWE-College-Jobs.git
+	branch = main
+	shallow = true
+[submodule "data/job-sources/new-grad-positions"]
+	path = data/job-sources/new-grad-positions
+	url = https://github.com/SimplifyJobs/New-Grad-Positions.git
+	branch = dev
+	shallow = true

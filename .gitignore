@@ -16,6 +16,10 @@ local/
 !/data/
 data/*
 !data/.gitkeep
+!data/job-sources/
+data/job-sources/*
+!data/job-sources/2027-swe-college-jobs
+!data/job-sources/new-grad-positions
 !data/offers/
 !data/parser-output/
 # Received offers/contracts, promise notes, prep reports (PII — never commit)
@@ -118,6 +122,7 @@ config/privacy.yml
 # update-system.mjs. Gitignored on purpose: it describes THIS clone, not the
 # project, and must survive the sync that overwrites update-system.mjs (#2421).
 config/local-paths.txt
+**/installation.json
 portals.yml
 modes/_profile.md
 modes/_custom.md

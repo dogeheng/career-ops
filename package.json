@@ -8,6 +8,11 @@
   },
   "scripts": {
     "doctor": "node doctor.mjs",
+    "jobs:ingest": "node lean-ingest.mjs --refresh",
+    "jobs:screen": "node lean-prescreen.mjs",
+    "cv:build": "node lean-buildcv.mjs",
+    "apply:handoff": "node lean-handoff.mjs",
+    "test:lean": "node --test tests/lean-workflow.test.mjs",
     "ui": "node scripts/ui-server.mjs",
     "or": "node openrouter-runner.mjs",
     "or:scan": "node openrouter-runner.mjs scan",
