@@ -57,7 +57,7 @@ export function restoreBackup(bundle, root = getCareerOpsRoot(), overwrite = fal
     return { path, bytes };
   });
   for (const { path, bytes } of entries) { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, bytes, { mode: 0o600 }); }
-  return { restored: entries.length, root, next: 'Run lean-setup --install-skills on this computer and recreate the two scheduled tasks. Sign in to Chromium again.' };
+  return { restored: entries.length, root, next: 'Run lean-setup --install-skills and lean-native-setup install on this computer. Sign in to Chromium again.' };
 }
 if (isMainModule(import.meta.url)) {
   const [mode, path, flag] = process.argv.slice(2);

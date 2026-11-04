@@ -12,7 +12,7 @@
     "jobs:screen": "node lean-prescreen.mjs",
     "cv:build": "node lean-buildcv.mjs",
     "apply:handoff": "node lean-handoff.mjs",
-    "test:lean": "node --test tests/lean-workflow.test.mjs tests/lean-portability.test.mjs",
+    "test:lean": "node --test tests/lean-workflow.test.mjs tests/lean-portability.test.mjs tests/lean-native.test.mjs",
     "ui": "node scripts/ui-server.mjs",
     "or": "node openrouter-runner.mjs",
     "or:scan": "node openrouter-runner.mjs scan",
@@ -90,7 +90,11 @@
     "demo": "node lean-demo.mjs",
     "setup:lean": "node lean-setup.mjs",
     "skills:install": "node lean-setup.mjs --install-skills",
-    "tokens:estimate": "node lean-token-budget.mjs"
+    "tokens:estimate": "node lean-token-budget.mjs",
+    "jobs:native:install": "node lean-native-setup.mjs install",
+    "jobs:native:status": "node lean-native-setup.mjs status",
+    "jobs:native:run": "node lean-native-run.mjs",
+    "jobs:native:uninstall": "node lean-native-setup.mjs uninstall"
   },
   "keywords": [
     "ai",

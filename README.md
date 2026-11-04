@@ -118,7 +118,7 @@ node lean-backup.mjs export local/private-backup.json
 
 导出文件默认拒绝覆盖已有同名备份；再次导出时换一个文件名。通过你自己的安全文件传输方式，把这个文件带到新电脑。它含个人资料，保存在被 Git 忽略的 `local/`，不要提交到公开仓库。
 
-备份包含：事实库、profile、自定义提示词、简历基稿及生成结果、JD、岗位状态、申请 tracker 和源简历。**不包含 API Key、`.env`、密码、登录 cookie、Chromium 会话、本机 skill 地址或 Codex 定时任务。**
+备份包含：事实库、profile、自定义提示词、简历基稿及生成结果、JD、岗位状态、申请 tracker 和源简历。**不包含 API Key、`.env`、密码、登录 cookie、Chromium 会话、本机 skill 地址或 本机系统任务。**
 
 ### 新电脑恢复
 
@@ -142,7 +142,7 @@ node lean-setup.mjs --install-skills
 
 使用自定义 `CODEX_HOME` 时传入它实际的 `skills` 目录。不要复制旧电脑的 `installation.json`。
 
-恢复后需重新登录 Chromium，并按“每日定时导入”在新电脑建立任务。若旧电脑仍运行，删除其任务，避免两台电脑各维护一份不同的岗位状态。
+恢复后需重新登录 Chromium，并按“每日定时导入”在新电脑安装系统任务。若旧电脑仍运行，删除其任务，避免两台电脑各维护一份不同的岗位状态。
 
 依赖版本、静态字体、模板和事实可固定；跨系统 PDF 的元数据或二进制哈希不保证相同。招聘网站、登录验证和实时岗位列表会变化，不能通过备份固定其行为。
 
@@ -234,24 +234,43 @@ node lean-handoff.mjs --url https://employer.example/application --resume /absol
 
 ## 每日定时导入
 
-本次设置是两个独立任务，每次新上下文运行，使用 **`gpt-6-luna` / `low`**：
+默认改用 **macOS launchd 系统定时器**直接运行 `lean-native-run.mjs`，不启动 Codex、不调用 Luna 或其他模型。只有新增且没有被硬条件排除、尚未跟踪的候选岗位，才通过本机通知中心提醒；没有新增时保持安静。提醒是候选发现，不代表 sponsor 或完整 JD 已确认。
 
 | 纽约时间（America/New_York） | 加州时间（America/Los_Angeles） |
 |---|---|
 | 10:20 | 07:20 |
 | 13:30 | 10:30 |
 
-旧的 09:00 长聊天任务已移除。不要把两组小时和分钟简单合成一个交叉组合，否则可能错误运行四次。
+### 安装、检查和迁移系统任务
 
-任务提示词只需指定本机项目目录、调用 `$career-ops-job-ingestion` 并运行 `node lean-ingest.mjs --refresh`，直接汇报返回的计数和 `top_new`。不做 eval、不生成 CV、不打开每个岗位、不修改 profile，也不提交或推送文件。
+```sh
+npm run jobs:native:install
+npm run jobs:native:status
+```
 
-换电脑时，使用 Codex 的定时任务功能重新创建，明确要求：**每次独立任务、Luna、低推理、本地执行、纽约时区、上述两个时间、当前电脑的仓库路径**。可直接在 Codex 说：
+macOS 需要 Xcode Command Line Tools（Git/Swift 编译器）；缺少时先运行 `xcode-select --install` 并完成系统安装。安装器会编译一个很小的本机通知助手，在 `~/Library/LaunchAgents/` 注册用户级任务。首次请求 `CareerOps Notifier` 通知权限时选择允许。无需管理员常驻服务或模型 API Key。
 
-> 为当前 career-ops 目录建立两个独立的每日岗位导入任务，按纽约时区每天 10:20 和 13:30 运行；用 gpt-6-luna、低推理，调用 career-ops-job-ingestion，只执行本地导入并汇报新增岗位。不要使用当前长聊天历史。
+这两个时间会按安装时系统时区转换成本地触发时间。纽约和加州的夏令时规则同步，全年保持三小时时差。移动到其他时区、或该地区与纽约夏令时切换日期不同后，请重新运行安装命令更新时刻。设置写在本机，不随 Git 或资料备份搬到新电脑；新电脑恢复资料后重新安装，旧电脑不再使用时卸载它的任务。
 
-如果新电脑系统时区在加州，需要确认任务仍按纽约时区运行，或设置对应的 07:20 / 10:30。定时任务属于本机应用配置，不会随 Git 或私人资料备份自动迁移。
+```sh
+# 立即刷新一次：仅在确有新增候选时发通知。
+npm run jobs:native:run
 
-需要本地文件的任务要求电脑开机且桌面应用在运行；见 [官方定时任务说明](https://learn.chatgpt.com/docs/automations?surface=app)。首次真实定时运行的成功状态应在任务结果中核对，安装检查不等于已经发生过一次定时运行。
+# 移除系统定时器，保留 profile、岗位记录与简历。
+npm run jobs:native:uninstall
+```
+
+此前两项 Codex/Luna 定时任务已删除。不要再创建同时运行的 AI 导入任务；`career-ops-job-ingestion` skill 保留供手动调用、诊断或以后明确要求其他调度方式时使用。
+
+系统任务是后台低优先级工作，没有 `KeepAlive`、轮询或登录时启动，也不主动唤醒或保持电脑唤醒。睡眠错过的日历触发会在唤醒后合并运行一次；关机错过的触发会等下个时段。详见 [Apple 的定时任务说明](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/ScheduledJobs.html)。不需要保持 Codex 桌面应用打开。
+
+### 通知、错误与用电
+
+通知状态保存在 `data/lean/native-state.json`；通知失败的岗位保留为 pending，下次运行重试，不因去重而丢掉提醒。任务失败写入 `native-last-run.json` 和本机日志，不用错误弹窗打扰。点击新岗位通知会打开本地 shortlist；系统通知可能受专注模式、横幅设置影响，可用 status 命令检查权限。
+
+一次实测：2252 个规范 URL 的完整联网刷新约 **0.91 秒**（另一次由系统启动为 **1.63 秒**），前一次累计 CPU 时间约 **0.40 秒**，峰值驻留内存约 **134 MiB**，退出后释放。该数据是本机一次测量，不是续航百分比，也不保证所有网络环境都一样。每日两次短运行不启动浏览器或本地大模型，预期额外耗电很低；token 是模型计费/用量指标，不能直接换算成本机耗电。保持电脑整天不睡眠反而没有必要。
+
+该原生安装器目前仅支持 macOS；Linux/Windows 可由用户选择系统调度器运行同一本地 worker，但没有宣称其他系统已安装或验证。
 
 ## 模型与 token 预算
 
@@ -260,7 +279,7 @@ node lean-handoff.mjs --url https://employer.example/application --resume /absol
 | 环节 | 模型 / 推理设置 |
 |---|---|
 | 岗位拉取、解析、去重和硬条件代码 | **无模型，0 个模型 API token** |
-| 两次独立定时任务的调度与汇报 | **gpt-6-luna / low**，在任务设置中明确指定 |
+| 两次系统任务的调度与通知 | **无模型，0 token**，由 launchd 和本机通知助手完成 |
 | 新的可信仓库 Codex 会话、简历定制 | **gpt-6.1-sol / medium**，由 `.codex/config.toml` 指定 |
 | HTML/PDF、事实/标题/一页检查、附件助手 | **无模型** |
 
@@ -270,21 +289,21 @@ node lean-handoff.mjs --url https://employer.example/application --resume /absol
 codex -m gpt-6.1-sol -c model_reasoning_effort=medium
 ```
 
-仅设置 `spend_tier: economy` 不会替你切换 Codex 当前模型。配置优先级见 [官方配置说明](https://learn.chatgpt.com/docs/config-file/config-basic)。Luna 适合范围明确的频繁自动化；简历措辞与复杂要求保留 Sol，参考 [官方模型选择指南](https://developers.openai.com/api/docs/guides/model-selection)。
+仅设置 `spend_tier: economy` 不会替你切换 Codex 当前模型。配置优先级见 [官方配置说明](https://learn.chatgpt.com/docs/config-file/config-basic)。日常导入不再需要 Luna；简历措辞与复杂要求保留 Sol，参考 [官方模型选择指南](https://developers.openai.com/api/docs/guides/model-selection)。
 
 ### 每天大约多少 token
 
 **以下是预算估算，不是实测的每日账单。**项目文本按英文字符数约除以 4 估算；平台系统提示词、工具定义、历史和推理无法从仓库文件精确推出。
 
-需要区分：本地导入脚本是 0 token，但唤起 AI 运行命令和汇报并非 0 token。输入统计也可能包含同一上下文重复发送及缓存命中。
+日常导入、去重、硬条件筛选、系统调度和本机通知均为 **0 模型 token**。只有明确在 Codex 中让模型读 JD、改写简历或回答问题时才产生模型用量。
 
-估算假设：每次请求平台上下文 `H = 30,000` token；每天两次导入，每次 3 次模型请求（读取 skill、执行命令、汇报）；每个选中岗位平均 6 次模型请求；JD 2,000 token。若宿主预先加载了 skill 可以更少，遇到问题或返工则会增加。
+简历估算假设：每次请求平台上下文 `H = 30,000` token；每日两次导入不调用模型；每个选中岗位平均 6 次模型请求；JD 2,000 token。遇到问题或返工时请求数会增加。
 
 | 每天工作量 | 累计输入（含重复上下文） | 可见输出估计 | 额外推理预算 |
 |---|---:|---:|---:|
-| 仅两次独立岗位导入 | 约 18.7 万 | 400–1,800 | 200–1,400 |
-| 导入 + 5 个选中岗位 | 约 125 万 | 2,900–14,300 | 1,700–16,400 |
-| 导入 + 10 个选中岗位 | 约 230 万 | 5,400–26,800 | 3,200–31,400 |
+| 仅两次系统岗位导入 | **0** | **0** | **0** |
+| 导入 + 5 个选中岗位 | 约 106 万 | 2,500–12,500 | 1,500–15,000 |
+| 导入 + 10 个选中岗位 | 约 212 万 | 5,000–25,000 | 3,000–30,000 |
 
 不同 profile、JD、模型宿主和调用次数会改变数字，表内输入值保留约 ±25% 的规划区间；该区间不能保证覆盖所有长聊天或重试。**缓存输入不等于新增文本，API 账单、订阅配额和累计 token 也不能直接互换。**没有把安装开发过程的 token 冒充成每日导入实测。
 
@@ -292,16 +311,16 @@ codex -m gpt-6.1-sol -c model_reasoning_effort=medium
 
 ```sh
 npm run tokens:estimate -- --jobs 5
-node lean-token-budget.mjs --jobs 10 --host-tokens 30000 --calls-per-job 6 --calls-per-ingest 3
+node lean-token-budget.mjs --jobs 10 --host-tokens 30000 --calls-per-job 6 --calls-per-ingest 0
 ```
 
-公式：每日输入约等于 `导入次数 × 每次请求数 × (H + 导入材料)` 加上 `岗位数 × 每岗请求数 × (H + profile/CV/规则/JD)`。定时任务真正运行后，优先用其 usage 记录替换假设。旧长聊天可能单次就带入二十多万输入；分离任务可以减少这部分历史，不能保证所有模型宿主都有一样小的固定开销。
+默认公式：每日模型输入约为 `岗位数 × 每岗模型请求数 × (H + profile/CV/规则/JD)`，系统导入部分为零。用实际 JD 会话的 usage 替换假设。旧长聊天可能携带大量历史；最好在项目的新会话中处理岗位并复用保存材料。
 
 ### 已落实的节省措施与质量边界
 
 1. 仅载入简短的默认入口，上游的大型评估说明按明确请求才读取。
-2. 岗位导入完全本地运行；模型只看紧凑计数及最多十条新增数据。
-3. 独立 Luna / low 定时任务，不继承安装和开发长聊天。
+2. 岗位导入、系统调度和新岗位通知完全本地运行，无须任何模型读取数据。
+3. 删除 AI 导入任务，使用不常驻、低优先级的系统日历任务。
 4. 一个 JD 提取一次；失败就请求正文，不消耗模型操纵网页反复重试。
 5. 复用已批准基稿，以 JSON patch 表达修改，减少重复输出；不重复生成 HTML/CSS。
 6. PDF、字体、事实、标题、日期和页数由本地代码校验，不额外调用模型打分。
@@ -318,6 +337,10 @@ node lean-token-budget.mjs --jobs 10 --host-tokens 30000 --calls-per-job 6 --cal
 | 虚构候选人离线示例 | `npm run demo` |
 | 更新两个岗位来源 | `npm run jobs:ingest` |
 | 不联网重建队列和清单 | `node lean-ingest.mjs` |
+| 安装系统日历任务 | `npm run jobs:native:install` |
+| 检查系统任务与通知 | `npm run jobs:native:status` |
+| 立即运行并只通知新增 | `npm run jobs:native:run` |
+| 卸载系统任务 | `npm run jobs:native:uninstall` |
 | 预筛一个 job JSON | `node lean-prescreen.mjs data/lean/job.json` |
 | 完整 payload 生成 PDF | `node lean-buildcv.mjs output/payload.json output/company-role` |
 | 基稿 + patch 生成 PDF | `node lean-buildcv.mjs --base output/base-source.json --patch output/job.patch.json output/company-role` |
@@ -341,7 +364,8 @@ node lean-token-budget.mjs --jobs 10 --host-tokens 30000 --calls-per-job 6 --cal
 | 新来源格式变了 / 拉取失败 | 保留现有队列，修复解析或网络后重跑；不要假装本次刷新成功 |
 | sponsor 未说明 | `needs-review`；需要核实，不自动拒绝或通过 |
 | 上传控件没识别出来 | 直接手动选择生成的 PDF；不要开启长时间网页填表循环 |
-| 定时任务没运行 | 检查本机应用、开机状态、时间/时区、账户模型可用性、网络和目录权限 |
+| 定时任务没运行 | 运行 `npm run jobs:native:status`，检查登录、开机、时间/时区、网络和目录权限；无需模型额度 |
+| 有新增但没通知 | 检查 CareerOps Notifier 通知权限、专注模式和 native-state.json 中的 pending；记录不会因通知失败而丢弃 |
 
 ## 更新、验证与上游
 
