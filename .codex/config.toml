@@ -1,0 +1,3 @@
+# Scoped to this trusted project. Global preferences and existing chats stay unchanged.
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"

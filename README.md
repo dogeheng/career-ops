@@ -1,635 +1,352 @@
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/wordmark-dark.svg"><img src="docs/wordmark-light.svg" alt="career-ops" width="250" height="56"></picture></p>
+# career-ops · 精简求职流程
 
-<p align="center">The open-source AI job search agent.</p>
+这是 [career-ops-hq/career-ops](https://github.com/career-ops-hq/career-ops) 的个人工作流 fork。默认分支为 **`lean-workflow`**。
 
-> **Lean workflow fork:** pre-screen → buildcv → Chromium sign-in → résumé upload → human submission. [中文安装与使用](docs/LEAN_QUICKSTART.zh-CN.md). Set `pipeline.mode: lean`; keep candidate data local. No eval/score/report prerequisite.
+**预筛选 → 按 JD 生成简历 → Chromium 手动登录 → 上传简历 → 人工完成并提交。**
 
-<p align="center">
-  <a href="README.md">English</a> |
-  <a href="README.es.md">Español</a> |
-  <a href="README.de.md">Deutsch</a> |
-  <a href="README.fr.md">Français</a> |
-  <a href="README.pt-BR.md">Português (Brasil)</a> |
-  <a href="README.ko-KR.md">한국어</a> |
-  <a href="README.ja.md">日本語</a> |
-  <a href="README.cn.md">简体中文</a> |
-  <a href="README.zh-TW.md">繁體中文</a> |
-  <a href="README.ua.md">Українська</a> |
-  <a href="README.ru.md">Русский</a> |
-  <a href="README.pl.md">Polski</a> |
-  <a href="README.da.md">Dansk</a> |
-  <a href="README.ta.md">தமிழ்</a> |
-  <a href="README.ar.md">العربية</a> |
-  <a href="README.hi.md">हिन्दी</a> |
-  <a href="README.tr.md">Türkçe</a> |
-  <a href="README.vi.md">Tiếng Việt</a> |
-  <a href="README.id.md">Bahasa Indonesia</a>
-</p>
+省下 eval、评分报告、公司调研、多模型复审和 Playwright MCP 填表循环；保留事实检查、标题与日期检查、单页检查和人工提交。岗位库更新、解析与去重由本地代码完成。个人 profile、简历、申请记录和浏览器会话不会进入 Git。
 
-<!-- The non-breaking spaces (&nbsp;) and word joiners (&#8288;) below decide where each line wraps on a phone. Keep them when editing. -->
+[全新电脑安装](#全新电脑安装) · [恢复原电脑资料](#换电脑恢复原有资料) · [日常使用](#日常使用) · [每日定时导入](#每日定时导入) · [模型与-token-预算](#模型与-token-预算) · [命令速查](#命令速查) · [故障排查](#故障排查)
 
-<p align="center"><a href="https://github.com/santifer"><img src="docs/avatar-santifer.png" width="48" height="48" align="middle" alt="Santiago Fernández de Valderrama Aparicio"></a>&nbsp;&nbsp;Created by <a href="https://github.com/santifer"><strong>@santifer</strong></a>, with&nbsp;&nbsp;<a href="https://github.com/career-ops-hq/career-ops#builders"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/builders-stack-dark.svg"><img src="docs/builders-stack-light.svg" alt="" height="32" align="middle"></picture></a>&nbsp;&nbsp;<a href="https://github.com/career-ops-hq/career-ops#builders">700+ contributors</a></p>
+## 全新电脑安装
 
-<p align="center">
-<strong>Months of sending CVs into&nbsp;silence.</strong><br>
-So I built the filter I&nbsp;needed.
-</p>
+### 1. 准备工具和账户
 
-<p align="center">
-<strong>740&nbsp;listings&nbsp;evaluated. 68&nbsp;applied. 12&nbsp;interviews.&nbsp;1&nbsp;offer.</strong><br>
-I was its first user. I got the&nbsp;job. Then&nbsp;I&nbsp;open-&#8288;sourced&nbsp;it.
-</p>
+| 项目 | 使用版本 / 要求 |
+|---|---|
+| Node.js | 本次验证版本 **24.16.0**，仓库 `.nvmrc` 已固定 |
+| npm | 本次验证版本 **11.11.0**；用 `npm ci` 按 lockfile 安装 |
+| Git | 支持 submodule；两个岗位源均使用 HTTPS，读取公开仓库不需要 SSH 私钥 |
+| 浏览器 | Playwright **1.64.1** 对应的 Chromium，由安装命令下载 |
+| AI 工具 | Codex 桌面应用或 CLI；也可在仓库目录使用 Claude Code |
+| 账户 | 按所用 AI 工具登录自己的账户；本精简流程不要求另外配置模型 API Key |
 
-<p align="center">
-Paste a job. On your machine, it tells you if it's still&nbsp;open and if it&nbsp;fits.<br>
-It tailors your CV and drafts your&nbsp;answers. <strong>You&nbsp;press&nbsp;Submit.</strong>
-</p>
+本机验证环境是 macOS、Node 24.16.0。Linux / WSL2 使用相同 Node 命令；Linux 需要补齐 Chromium 系统依赖。Windows 优先使用 WSL2，避免 Git 符号链接和 shell 差异。没有声称在所有操作系统上实测过。
 
-<p align="center">
-  <img src="docs/demo.gif" alt="The author's own search in the career-ops dashboard: scored listings, a red count of the ones marked do not apply, then a full evaluation report" width="800">
-</p>
+安装 Node 可使用 [Node.js 官方下载](https://nodejs.org/en/download)。已有 nvm 的电脑可在克隆后运行 `nvm install` 和 `nvm use`。
 
-<p align="center"><sub>My own search, partway through, with&nbsp;the&nbsp;UI&nbsp;in&nbsp;Spanish.</sub></p>
+安装并登录 [Codex 桌面应用](https://learn.chatgpt.com/docs/codex)；若使用 CLI，本机验证版本为 `codex-cli 0.153.4`：
 
-<p align="center">
-  Companies use AI to filter candidates.<br>
-  <strong>I just gave candidates AI&nbsp;to&nbsp;<em>choose</em>&nbsp;companies.</strong>
-</p>
-
-<p align="center">
-  Six months later, <strong>I left that job.</strong><br>
-  Now we build career-ops, so&nbsp;you&nbsp;can&nbsp;land&nbsp;yours.
-</p>
-
-<p align="center"><a href="#your-turn">Try it on one job&nbsp;↓</a> · <a href="https://santifer.io/career-ops-system">Read the full&nbsp;story&nbsp;→</a></p>
-<p align="center"><sub>Prefer not to use a terminal? <a href="https://career-ops.org/waitlist?ref=readme-en">Join the waitlist for a web version&nbsp;→</a></sub></p>
-
-<br>
-
-<p align="center"><a href="HIRED.md"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcareer-ops-hq%2Fcareer-ops%2Fmain%2Fdocs%2Fhired-count.json&query=%24.count&label=%F0%9F%8E%89%20HIRED%20WITH%20CAREER-OPS&suffix=%20on%20the%20record&color=2ea44f&style=for-the-badge&labelColor=2b3137" alt="Hired with career-ops: public stories on the record"></a></p>
-
-<p align="center">The people who came after me wrote down how they got hired.</p>
-
-<p align="center">
-  <a href="HIRED.md"><img src="docs/hired-wall.svg" alt="Hired stories you can open and read" width="800"></a>
-</p>
-
-<p align="center"><sub>Every card is a public issue you can open. Landed yours? <a href="https://github.com/career-ops-hq/career-ops/issues/new?template=i-got-hired.yml">Leave your card →</a></sub></p>
-
-<p align="center">⭐ <strong>If career-ops helped you, a star helps the next person find&nbsp;it.</strong></p>
-
-<br>
-
-<p align="center">
-  <a href="https://wired.com.gr/article/to-ai-ergaleio-pou-fernei-epanastasi-ston-tropo-pou-psachnoume-douleia/" rel="noopener noreferrer nofollow"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/press/wired-dark.svg"><img src="docs/press/wired.svg" alt="WIRED" height="32"></picture></a>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.businessinsider.com/how-i-built-tool-filter-job-listings-landed-head-ai-2026-4" rel="noopener noreferrer nofollow"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/press/business-insider-dark.svg"><img src="docs/press/business-insider.svg" alt="Business Insider" height="32"></picture></a>
-</p>
-
-<p align="center">
-  <a href="https://vercel.com/open-source-program"><img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge-2026.svg" height="32"></a>
-</p>
-
-<p align="center">
-  <a href="https://trendshift.io/repositories/25195" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/25195" alt="GitHub Trending: #1 repository of the day (Trendshift)" width="250" height="55"></a>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.producthunt.com/products/santifer-io?utm_source=badge-featured&utm_medium=badge" rel="noopener noreferrer"><img src="docs/press/producthunt.svg" alt="Featured on Product Hunt" width="206" height="54"></a>
-</p>
-
-## Your turn
-
-Paste one job you were about to apply to tonight. If it comes back <em>do not apply</em>, you just got the night back. If it comes back with a plan, you know what to do next.
-
-```bash
-npx @santifer/career-ops init
+```sh
+npm install --global @openai/codex@0.153.4
+codex login
 ```
 
-<p align="center"><sub>Open source. Local. In the AI CLI you already use. <a href="docs/RUNNING_ON_A_BUDGET.md">Free and local models included.</a></sub></p>
+也可用已经安装的更新版 Codex。模型可用性由你的账户和所用产品决定；账户登录和招聘网站登录需要在新电脑重新完成。CLI 安装和登录方式见 [官方说明](https://learn.chatgpt.com/docs/codex/cli)。
 
+### 2. 克隆、安装依赖和 Chromium
 
-## You don't have to search alone
-
-The silence after you hit send is not about you. Enough people saw the same thing to write the practice down, in six lines:
-
-> Apply better to fewer. Signal over volume. Evidence over keywords. A human decides. Local-first. Dignity on both sides of the table.
-
-<p align="center"><a href="https://career-ops.org/manifesto?utm_source=readme"><img src="https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcareer-ops-hq%2Fcareer-ops%2Fmain%2FSIGNATURES.md&search=n%3A(%5Cd%2B)%5Cs*%24&replace=%241%20signatories&label=THE%20CAREEROPS%20MANIFESTO&color=DD7627&style=for-the-badge&labelColor=2b3137" alt="The CareerOps manifesto: live count of signatories"></a></p>
-
-<p align="center">A few of them, in their own words.</p>
-
-<p align="center">
-  <a href="https://career-ops.org/manifesto?utm_source=readme"><img src="docs/manifesto-wall.svg" alt="Three signatures of the CareerOps manifesto, in their own words" width="800"></a>
-</p>
-
-<p align="center"><sub>Every signature is a commit you can audit. <a href="https://career-ops.org/manifesto?utm_source=readme">Read them all, or add yours →</a> · <a href="https://career-ops.org/manifesto?utm_source=readme#what-is-ai-job-search">What is AI job search?</a></sub></p>
-
-<br>
-
-Hiring will not fix itself. The people going through it can, and they are already in the room, comparing notes and fixing each other's setups.
-
-<a id="builders"></a>
-
-<p align="center"><a href="CONTRIBUTING.md"><img src="https://warpchart.dev/api/builders?lang=en" alt="Animated wall of contributors' GitHub avatars, filling in order of arrival since April 2026, with the next square left open." width="100%"></a></p>
-
-[This is where the fix gets written](CONTRIBUTING.md). A room, not a club. **Let's build together.**
-
-<p align="center"><a href="https://discord.gg/8pRpHETxa4"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv10%2Finvites%2F8pRpHETxa4%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&label=Discord&suffix=%20members&color=5865F2&style=for-the-badge&labelColor=2b3137&logo=discord&logoColor=white" alt="Discord: live member count of the career-ops server"></a></p>
-
-## Sponsors
-
-career-ops is free for candidates, forever. These companies sponsor the project:
-
-<p align="center">
-  <a href="https://serpapi.com/career-ops-org" title="SerpApi"><img src="docs/sponsors/serpapi.svg" alt="SerpApi" height="48"></a>
-</p>
-
-<p align="center"><strong>SerpApi</strong> · Build a portfolio project with live search data. SerpApi gives developers structured JSON/Markdown from Google Search, Maps, Shopping, and other engines through a simple API call.</p>
-
-> Sponsorship buys clearly labeled visibility, never influence: no amount of money changes the roadmap or places anything in the product. Sponsors never appear in evaluations, rankings or recommendations.
-
-## What career-ops does for you
-
-Paste a job. It tells you whether that night is worth it.
-
-- **Still open?** It checks that the posting is still live before you write a word.
-- **Not you?** It scores the role against your real CV and tells you to skip a weak fit. You can override it.
-- **Worth it?** It drafts the CV, the cover letter and the answers. You read them. You send them.
-- **Who do I talk to?** It finds the person and drafts the note. It never sends it.
-- **Where does it all go?** Every application stays on your machine. Nothing is uploaded to us.
-- **What should I learn?** After a run of noes, it names the gap.
-
-The first runs are rough. It does not know you yet. Talk to it: your CV, what you want, what you refuse. Think of it as a recruiter's first week.
-
-On first launch it asks for all that in chat. Nothing to configure by hand.
-
-## What career-ops will not do
-
-- **Auto-submit an application.** It drafts the answer to every field; you review and click Submit. The script never POSTs (`prepare-application.mjs`).
-- **Send an email.** Drafts only. There is no mail transport anywhere in this codebase.
-- **Phone home.** No telemetry, no backend of ours. Your CV goes from your machine to the AI provider you chose, and nowhere else. The only public ledger is this repo: `HIRED.md` and its issues.
-- **Push you to apply below 4.0/5.** It will tell you not to. You can override it, and it will say so.
-
-It reformulates your CV; it must never fabricate it. A check in code stops a PDF whose numbers or facts appear in neither your CV nor your article digest, but it cannot judge every rewording yet. Read every CV before you send it. Details in the [FAQ](#faq).
-
-## Features
-
-| Feature                  | Description                                                                                                                              |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **A-H Evaluation**       | Role summary, CV match (with how much each requirement matters for this posting, and whether that weight came from the JD's own wording, its structure, or an estimate, labelled per requirement; an estimate can never be top-band), level strategy, comp research, personalization, interview prep (STAR+R) -- plus a Block G posting-legitimacy check (is it still open, is it a repost: observations, not verdicts), and a Work-Auth signal that flags an explicit no-sponsorship JD as a hard blocker |
-| **Human-in-the-Loop**    | AI evaluates and recommends, you decide and act. The system never submits an application -- you always have the final call <!-- hitl: absolute guarantee. Do not add "automatically", "by itself", "without your permission" or any other hedge when translating this row. -->               |
-| **ATS PDF Generation**   | ATS-readable CVs tailored to each JD from your own experience, in Space Grotesk + DM Sans design                                                                                 |
-| **Cover Letter Generator** | Research-backed cover letters with keyword mirroring, four interactive angle prompts (why/problems/approach/tone), draft-in-chat approval gate, and A4 PDF via the same HTML + Playwright pipeline as CVs. Auto-drafts on every evaluation; complete and generate on demand via `/career-ops cover` |
-| **Beyond the CV**        | Company research ([`deep`](modes/deep.md)) surfaces AI strategy, recent moves, engineering culture, and the angle your profile should take. Contact discovery ([`contacto`](modes/contacto.md)) identifies the hiring manager, recruiter, or team peer worth reaching out to and drafts a ≤300-character LinkedIn message tuned to each contact type. Formal application email drafts ([`email`](modes/email.md)) turn an evaluated report or pasted JD into a subject line, body, and attachment checklist without sending, submitting, or clicking anything. Applications get you in the queue; research gets you a conversation. |
-| **Pattern Analysis**     | Rejection patterns and per-ATS-channel advance rates (`analyze-patterns.mjs`), lifetime funnel stats (`stats.mjs`), repost detection, a possible sign of a ghost job (`detect-reposts.mjs`) |
-
-<details>
-<summary><b>Everything else it does</b></summary>
-
-| Feature                  | Description                                                                                                                              |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Auto-Pipeline**        | Paste a URL, get a full evaluation + PDF + tracker entry                                                                                 |
-| **Interview Story Bank** | Accumulates STAR+Reflection stories across evaluations -- 5-10 master stories you can adapt to the behavioral questions you get                        |
-| **Negotiation Scripts**  | Salary negotiation frameworks, geographic discount pushback, competing offer leverage                                                    |
-| **Application Email Drafts** | Formal recruiter/referral/cold application emails from a report or pasted JD, with subject line, attachment checklist, source-backed fit points, and a profile-driven contact block. Draft-only -- career-ops never sends, submits, or clicks anything. |
-| **Portal Scanner**       | 100+ companies pre-configured (Anthropic, OpenAI, ElevenLabs, Retool, n8n...) + custom web-search queries across Ashby, Greenhouse, Lever, Wellfound |
-| **Funded Company Discovery** | Review-first `npm run company:funded` script surfaces recently funded companies and source diagnostics from structured public feeds without editing your data |
-| **Batch Processing**     | Parallel evaluation with headless CLI workers (`claude -p` / `opencode run`)                                                             |
-| **Dashboard TUI**        | Terminal UI to browse, filter, and sort your pipeline                                                                                    |
-| **Pipeline Integrity**   | Automated merge, dedup, status normalization, health checks                                                                              |
-| **Interview Suite**      | Time-blocked prep plans, practice sessions with feedback, post-interview debriefs ([`interview/`](modes/interview/README.md)), and a company red-flag detector ([`interview-redflag`](modes/interview-redflag.md)) |
-| **Offer Stage**          | Contract reading companion -- clause walk plus a lawyer question list ([`offer-prep`](modes/offer-prep.md)) -- and a desired/advertised/actual salary-gap analyzer (`salary-gap.mjs`) |
-| **Follow-ups & Replies** | Follow-up cadence calculator and seeded reminders (`followup-cadence.mjs`, `followup-seed.mjs`); turn them off with `follow_ups.enabled: false` in `config/profile.yml`; employer reply classification into tracker updates ([`reply-watch`](modes/reply-watch.md)) |
-| **Plugin System**        | Opt-in integrations (Gmail, Notion, Apify + a community registry), disabled by default -- see [docs/PLUGINS.md](docs/PLUGINS.md)        |
-| **LinkedIn job alerts**  | Paste a LinkedIn alert email on the dashboard or with `node linkedin-import.mjs`. No Google account. See [docs/LINKEDIN_JOBS.md](docs/LINKEDIN_JOBS.md) |
-
-</details>
-
-## How It Works
-
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/how-it-works-dark.svg"><img src="docs/how-it-works-light.svg" alt="How it works: you paste a job URL or description. Archetype Detection classifies it as LLMOps, Agentic, PM, SA, FDE or Transformation. The A-H Evaluation reads cv.md and covers match, gaps, comp research, STAR stories and legitimacy. It produces a report (reports/*.md), the tailored CV in the format set by cv.output_format — a PDF by default — and a tracker entry (data/applications.md)." width="760"></picture></p>
-
-## Quick Start
-
-**Fastest way, one command:**
-
-```bash
-npx @santifer/career-ops init
-```
-
-> 💡 `npx` ships with [Node.js](https://nodejs.org): it runs the installer once,
-> without installing anything globally. No Node yet? Install it first.
-> (Already using a Claude Code / Codex CLI? Then you already have it.)
-
-This clones the latest release into `./career-ops` and installs dependencies. Then:
-
-```bash
+```sh
+git clone --branch lean-workflow --depth 1 --recurse-submodules --shallow-submodules https://github.com/dogeheng/career-ops.git
 cd career-ops
-claude   # or codex / qwen / opencode / agy / grok — open your AI CLI here
+
+# 已有 nvm 时使用；否则先自行安装上述 Node 版本。
+nvm install
+nvm use
+
+npm ci --ignore-scripts
+npx playwright install chromium
+node lean-setup.mjs
+node lean-setup.mjs --install-skills
 ```
 
-**On first launch, career-ops walks you through setup (your CV, profile and target roles) just by chatting. Nothing to edit by hand.**
+没有 nvm 时跳过两条 nvm 命令，先确认 `node --version`。Linux / WSL2 如果缺少浏览器系统库，使用 `npx playwright install --with-deps chromium`，按系统提示安装依赖。
 
-<details>
-<summary><b>Prefer to set it up manually? (git clone)</b></summary>
+`--ignore-scripts` 避免上游 postinstall 重复尝试下载浏览器；下一行显式安装的是 lockfile 对应的 Chromium。**不要改用无 lockfile 的随意依赖升级，也不要运行上游 `update-system.mjs` 覆盖这个 fork。**
 
-```bash
-git clone https://github.com/career-ops-hq/career-ops.git
-cd career-ops && npm install
-npx playwright install chromium   # only needed for PDF generation
-# On a non-Debian/Ubuntu Linux distro (Fedora, Arch, ...), Chromium's system
-# libraries aren't installed by the line above — install them yourself with
-# your distro's package manager if PDF generation fails to launch the browser
-# (Playwright's own docs list the required libraries per platform).
+安装脚本把两个 skill 复制到本机 `${CODEX_HOME:-~/.codex}/skills/`，并自动写入当前电脑的项目地址。下一条 Codex 消息可发现它们。已有同名但属于其他目录的 skill 时会报错，不会静默覆盖；移动旧副本后再安装。此命令可在同一目录重复运行以更新 skill。
 
-# 2. Open your AI CLI in this directory. On first launch it walks you
-#    through setup (your CV, profile and target roles) by chatting
-claude   # or codex / opencode / qwen / agy / grok
+### 3. 先运行不含私人资料的示例
 
-# Then ask your CLI to adapt the system to you:
-# "Change the archetypes to backend engineering roles"
-# "Translate the modes to English"
-# "Add these 5 companies to portals.yml"
-# "Update my profile with this CV I'm pasting"
-
-# 3. Start using
-# Paste a job URL or JD text to trigger auto-pipeline.
-# Every other mode, and how to ask for it in your CLI: see Usage below.
+```sh
+npm run demo
+npm run test:lean
 ```
 
-LinkedIn job alerts: paste the email. No Google account. See [docs/LINKEDIN_JOBS.md](docs/LINKEDIN_JOBS.md).
+`demo` 在临时目录创建虚构候选人，生成一个单页 PDF，并打印文件地址。它不读取你的 profile、不访问招聘网站、不调用模型。示例可以通过，说明 Node、锁定依赖、内嵌字体、HTML/PDF 生成和事实检查能够协作。
 
-</details>
+### 4. 加入自己的资料，或恢复备份
 
-### Global install
+若是换电脑，直接按下一节恢复；不必重新填写。
 
-```bash
-npm i -g @santifer/career-ops
+第一次使用则编辑以下本地文件：
+
+| 文件 | 内容 |
+|---|---|
+| `cv.md` | 真实履历、技能、项目、职位名称、日期和指标，作为简历事实来源 |
+| `config/profile.yml` | 联系方式、国家偏好、工作许可、sponsor、毕业及入职时间 |
+| `modes/_custom.md` | 精简流程、输出偏好、人工提交和节省 token 的规则 |
+| `modes/_profile.md` | 可选的目标岗位说明；不得写入没有来源的经历 |
+
+`lean-setup` 已复制通用 profile 和自定义提示词模板。未知值保留 `null`，由助手询问；不要用 `false` 或 `0` 代替未知。需要提供真实 `candidate.full_name`、`candidate.email` 和 `cv.md` 后再生成自己的简历。
+
+`cv.md` 建议采用以下结构，标题检查会使用它：
+
+```md
+# CV — Your Name
+
+## Education
+- Your actual degree, university and graduation date
+
+## Work Experience
+### Your actual employer
+**Your actual title**
+Jun 2026 - Aug 2026
+- Source-backed contribution and metric
+
+## Projects
+### Your actual project
+- Source-backed description
+
+## Skills
+- Your actual skills
 ```
 
-This installs the `career-ops` binary globally, so you can run `career-ops init [folder]` without `npx`. `init` is its only command: it sets up a workspace, and everything after that happens inside your AI coding CLI (see Usage below), not through this binary.
+这只是结构示例，不可当作自己的事实。
 
-**Which one should you use?**
-- `npx @santifer/career-ops init`: best for first use; creates a dedicated project folder.
-- `npm i -g @santifer/career-ops`: if you'd rather type `career-ops init` than the `npx` form. It adds no other commands.
+## 换电脑恢复原有资料
 
-### Other ways to run it
+**仓库只包含程序和通用模板。只重新 clone 不会恢复你的 profile、基稿、申请记录或岗位去重状态。**
 
-- **From any folder, as a Claude Code plugin:** [docs/CLAUDE_PLUGIN.md](docs/CLAUDE_PLUGIN.md).
-- **Without an AI CLI:** standalone Gemini, Ollama and OpenAI-compatible scripts evaluate a JD on their own. See [docs/SCRIPTS.md](docs/SCRIPTS.md#geminieval--ollamaeval--openaieval).
+### 旧电脑导出
 
-> **The system is designed to be customized by your AI coding CLI itself.** Modes, archetypes, scoring weights, negotiation scripts -- just ask it to change them. It reads the same files it uses, so it knows exactly what to edit.
+在旧电脑仓库目录运行：
 
-See [docs/SETUP.md](docs/SETUP.md) for the full setup guide (including [scanning through an outbound proxy](docs/SETUP.md#scanning-through-an-outbound-proxy)), [docs/SUPPORTED_CLIS.md](docs/SUPPORTED_CLIS.md) for how to run career-ops in each supported CLI, and its headless command where it has one, [docs/RUNNING_ON_A_BUDGET.md](docs/RUNNING_ON_A_BUDGET.md) for instructions on running career-ops cheaply using custom or local models (and [docs/FREE_TIER.md](docs/FREE_TIER.md) for running it at zero cost on Antigravity CLI's free tier), [docs/AUTOMATION.md](docs/AUTOMATION.md) for scheduling recurring scans and a zero-token triage-to-shortlist recipe, [docs/KEEPING_PORTALS_LIVE.md](docs/KEEPING_PORTALS_LIVE.md) for keeping your company list current, [docs/BACKUP_STRATEGIES.md](docs/BACKUP_STRATEGIES.md) for backing up your CV, tracker and reports, [docs/APPLY_AUTOFILL.md](docs/APPLY_AUTOFILL.md) for details on the ATS auto-fill flow, [docs/LINKEDIN_JOIN.md](docs/LINKEDIN_JOIN.md) for cross-referencing a LinkedIn connections export against the companies in your funnel, and [docs/FAQ.md](docs/FAQ.md) for answers to common setup questions, including [how story provenance prevents invented numbers](docs/FAQ.md#why-does-career-ops-refuse-to-use-a-number-from-my-story-bank). Design principles live in [ARCHITECTURE.md](ARCHITECTURE.md); runtime flows in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Usage
-
-Paste a job URL or description into your AI CLI. career-ops checks that a linked posting is still live (pasted text has no link to check), scores it against your CV, writes a report, tailors your CV (a PDF by default) and adds a row to your tracker. That covers most days. Everything else is a mode you ask for by name. If a posting can't be read, the pipeline stops and asks you to paste the text or share a screenshot.
-
-### Asking for a mode
-
-| CLI | How you ask for `scan` |
-| --- | --- |
-| Claude Code, OpenCode, Antigravity CLI (`agy`), Grok Build CLI | `/career-ops scan` |
-| Pi | `/skill:career-ops scan` |
-| Codex, Qwen, Cursor, or any other supported CLI | Plain language: "Run the career-ops scan mode" |
-
-`/career-ops` with nothing after it shows the command menu in the CLIs that use it. Plain language works in every supported CLI. As a Claude Code plugin, the command is `/career-ops:career-ops`.
-
-All of them share one router, `.agents/skills/career-ops/SKILL.md`, and the same `modes/*.md` files, so every CLI routes a request the same way (browser-heavy modes also need Playwright tools). Slash commands are not guaranteed in Codex: ask in plain language, or run one prompt headless with `codex exec "Evaluate this JD with career-ops auto-pipeline: https://company.com/jobs/123"` ([docs/CODEX.md](docs/CODEX.md)). How to run it in each supported CLI, headless commands where a CLI has one, and per-CLI setup notes are in [docs/SUPPORTED_CLIS.md](docs/SUPPORTED_CLIS.md).
-
-### The everyday commands
-
-| Command | What it does |
-| --- | --- |
-| *paste a URL or JD* | Full pipeline: liveness check (URLs only), A-G evaluation plus H at high scores, report, tailored CV (PDF by default), tracker row |
-| `scan` | Scan your portals for new postings and add them to the inbox (`data/pipeline.md`) |
-| `pipeline` | Work through the URLs waiting in the inbox (the standard and premium tiers may skip obvious mismatches) |
-| `apply` | Fill an application form with you, field by field. It stops before Submit |
-| `tracker` | Where every application stands |
-| `followup` | Which applications are due a follow-up, with drafts |
-
-<details>
-<summary><b>All commands, by stage of the search</b></summary>
-
-`oferta`, `ofertas` and `contacto` keep their original Spanish names: offer, offers, contact.
-
-**Find roles**
-
-| Command | What it does |
-| --- | --- |
-| [`scan`](modes/scan.md) | Scan portals and discover new offers |
-| [`discover`](modes/discover.md) | Resolve a list of company names to scannable ATS boards. Previews by default; adds them to `portals.yml` only with `--write` (zero-token) |
-| [`pipeline`](modes/pipeline.md) | Process pending URLs from the inbox (`data/pipeline.md`) |
-| [`triage`](modes/triage.md) | Fast first-pass go/no-go score from `modes/_brief.md`, before a full evaluation (writes no files) |
-| [`batch`](modes/batch.md) | Evaluate many postings with headless workers (parallel with Claude, one at a time with other CLIs) |
-| [`titles`](modes/titles.md) | Suggest adjacent job titles from your CV to broaden the search |
-
-**Evaluate a role**
-
-| Command | What it does |
-| --- | --- |
-| *paste a URL or JD* | [Auto-pipeline](modes/auto-pipeline.md): evaluation + report + tailored CV (PDF by default) + tracker entry |
-| [`oferta`](modes/oferta.md) | Evaluation only, Blocks A to G plus H at high scores (no PDF) |
-| [`ofertas`](modes/ofertas.md) | Compare and rank several offers |
-| [`deep`](modes/deep.md) | Deep research prompt about the company |
-| [`eu-swe`](modes/regional/eu-swe.md) | Calibrate a European software-engineering application before CV, apply or interview |
-
-**Apply**
-
-| Command | What it does |
-| --- | --- |
-| [`pdf`](modes/pdf.md) | ATS-optimized CV as a PDF |
-| [`ats`](modes/ats.md) | ATS-friendliness check of a generated CV: score and fixable issues |
-| [`text`](modes/text.md) | Tailored CV as markdown (mirrors `cv.md`, no PDF) |
-| [`latex`](modes/latex.md) | Export the CV as LaTeX/Overleaf `.tex` |
-| [`latex-tex`](modes/latex-tex.md) | Tailor your own `resume.tex` in place (opt-in; `cv.md` stays the default) |
-| [`cover`](modes/cover.md) | Cover letter, from a pasted JD or an evaluated report (`cover {slug}`) |
-| [`email`](modes/email.md) | Formal application email draft. Draft-only: never sends, submits or clicks |
-| [`contacto`](modes/contacto.md) | Find the hiring manager, recruiter or a peer, and draft a LinkedIn message |
-| [`apply`](modes/apply.md) | Live application assistant (Playwright from this checkout). Does not submit |
-
-**Interview**
-
-| Command | What it does |
-| --- | --- |
-| [`interview-prep`](modes/interview-prep.md) | Company-specific interview prep document |
-| [`interview/plan`](modes/interview/plan.md) | Time-blocked prep plan for an upcoming interview |
-| [`interview/practice`](modes/interview/practice.md) | Practice interview, one question at a time, with feedback |
-| [`interview/debrief`](modes/interview/debrief.md) | Post-interview debrief: close gaps, predict the next round |
-| [`interview-redflag`](modes/interview-redflag.md) | Analyze an employer's warning signs before you join |
-
-**After you apply**
-
-| Command | What it does |
-| --- | --- |
-| [`tracker`](modes/tracker.md) | Application status overview |
-| [`followup`](modes/followup.md) | Follow-up cadence: flag overdue applications, generate drafts |
-| [`reply-watch`](modes/reply-watch.md) | Classify employer replies and suggest tracker updates |
-| [`outcome`](modes/outcome.md) | Record an application's outcome and archive its artifacts |
-| [`offer-prep`](modes/offer-prep.md) | Read a received offer or contract with you: clause walk and questions for a lawyer (not legal advice) |
-
-**Your profile and CV**
-
-| Command | What it does |
-| --- | --- |
-| [`interview`](modes/interview.md) | Profile setup: an interactive interview about your experience that builds your CV and profile (not interview practice) |
-| [`intake`](modes/intake.md) | Build or enrich your profile from files in `documents/` (master CV, LinkedIn export). Nothing is written without your confirmation |
-| [`master-profile`](modes/master-profile.md) | Import, review and validate your Master Career Profile, and prepare selected facts as CV bullets |
-| [`add`](modes/add.md) | Add a project, paper or role to your CV (fetch, preview, confirm) |
-| [`expand`](modes/expand.md) | Discover competencies missing from your CV, from your profile links |
-| [`retro`](modes/retro.md) | Review this session and keep what you taught it as rules (writes only the ones you accept) |
-
-**Improve your targeting**
-
-| Command | What it does |
-| --- | --- |
-| [`patterns`](modes/patterns.md) | Analyze rejection patterns and improve targeting |
-| [`calibrate`](modes/calibrate.md) | Check whether your evaluation scores predict your real outcomes. Advisory: never changes scoring |
-| [`upskill`](modes/upskill.md) | Skill-gap analysis across your evaluated reports |
-| [`training`](modes/training.md) | Evaluate a course or certification against your North Star |
-| [`project`](modes/project.md) | Evaluate a portfolio project idea |
-
-**System**
-
-| Command | What it does |
-| --- | --- |
-| [`agent-inbox`](modes/agent-inbox.md) | Queue requests for the next session, and work through them then (`data/agent-inbox.md`). `inbox` works too |
-| [`update`](modes/update.md) | Update career-ops system files, with a diff preview and compatibility check |
-
-</details>
-
-## Pre-configured Portals
-
-The scanner comes with **100+ companies** ready to scan and **35+ search queries** across major job boards. Copy `templates/portals.example.yml` to `portals.yml` and add your own:
-
-**AI Labs:** Anthropic, OpenAI, Mistral, Cohere, LangChain, Pinecone
-**Voice AI:** ElevenLabs, PolyAI, Parloa, Hume AI, Deepgram, Vapi, Bland AI
-**AI Platforms:** Retool, Airtable, Vercel, Temporal, Glean, Arize AI
-**Contact Center:** Ada, LivePerson, Sierra, Decagon, Talkdesk, Genesys
-**Enterprise:** Salesforce, Twilio, Gong, Dialpad
-**LLMOps:** Langfuse, Weights & Biases, Lindy, Cognigy, Speechmatics
-**Automation:** n8n, Zapier, Make.com
-**European:** Factorial, Attio, Tinybird, Clarity AI, Travelperk
-
-**Job boards searched:** 55+ provider modules cover ATS APIs, board-wide feeds, XML/RSS feeds, markdown feeds, and local parsers. See [Supported job boards](docs/SUPPORTED_JOB_BOARDS.md) for the full table.
-
-Keep the list current: `portals.yml` is designed to stay live, not be a one-time setup file. See [Keeping portals.yml live](docs/KEEPING_PORTALS_LIVE.md) for the house rule that adds new companies automatically and the commands to validate the file after every change.
-
-By default `node scan.mjs` (a.k.a. `npm run scan`) trusts what each ATS feed returns. Some companies leave stale postings in their public API even after the role is closed, so those expired entries can leak into `pipeline.md`. Pass `--verify` to launch Playwright after the API pass and drop expired postings before they hit the pipeline:
-
-```bash
-node scan.mjs --verify          # zero-token discovery + Playwright liveness check
+```sh
+node lean-backup.mjs export local/private-backup.json
 ```
 
-The verification is sequential and only runs against new offers (after dedup), so the cost stays bounded.
+导出文件默认拒绝覆盖已有同名备份；再次导出时换一个文件名。通过你自己的安全文件传输方式，把这个文件带到新电脑。它含个人资料，保存在被 Git 忽略的 `local/`，不要提交到公开仓库。
 
-## Dashboard TUI
+备份包含：事实库、profile、自定义提示词、简历基稿及生成结果、JD、岗位状态、申请 tracker 和源简历。**不包含 API Key、`.env`、密码、登录 cookie、Chromium 会话、本机 skill 地址或 Codex 定时任务。**
 
-The built-in terminal dashboard lets you browse your pipeline visually:
+### 新电脑恢复
 
-```bash
-npm run serve:dashboard   # launch the TUI
-npm run build:dashboard   # optional: build the standalone binary
+先完成全新电脑安装，再运行：
+
+```sh
+node lean-backup.mjs import /path/to/private-backup.json --overwrite
+node lean-setup.mjs --install-skills
+node lean-ingest.mjs
+npm run test:lean
 ```
 
-Features: 10 filter tabs, 8 sort modes, grouped/flat view, lazy-loaded previews, inline status changes.
+把 `/path/to/private-backup.json` 换成真实文件地址。`--overwrite` 用于替换刚初始化的空 profile 等允许迁移的资料；导入前会校验所有文件的路径和 SHA-256，不写入仓库代码或凭证目录。已有真实资料的电脑请先另外导出一份备份。
 
-There is also an **experimental web UI** (alpha and opt-in: nothing runs unless you start it): see [`web/README.md`](web/README.md).
+如果系统提示 skill 属于旧地址，可只重新绑定已安装的副本：
 
-## Project Structure
-
-```
-career-ops/
-├── AGENTS.md                    # Canonical agent instructions (all CLIs)
-├── CLAUDE.md                    # Claude Code wrapper (imports AGENTS.md)
-├── CODEX.md                     # Codex wrapper (imports AGENTS.md)
-├── OPENCODE.md                  # OpenCode wrapper (imports AGENTS.md)
-├── GEMINI.md                    # Legacy no-op guard to avoid Antigravity duplicate context
-├── cv.md                        # Your CV (create this)
-├── article-digest.md            # Your proof points (optional)
-├── config/
-│   └── profile.example.yml      # Template for your profile
-├── modes/                       # Skill modes
-│   ├── _shared.md               # Shared context (system file; local edit kept unless apply --force)
-│   ├── _profile.md              # Your archetypes and framing (customize this)
-│   ├── oferta.md                # Single evaluation
-│   ├── pdf.md                   # PDF generation
-│   ├── cover.md                 # Cover letter generation
-│   ├── email.md                 # Formal application email drafts
-│   ├── scan.md                  # Portal scanner
-│   ├── batch.md                 # Batch processing
-│   └── ...
-├── templates/
-│   ├── cv-template.html         # ATS-optimized CV template
-│   ├── portals.example.yml      # Scanner config template
-│   └── states.yml               # Canonical statuses
-├── batch/
-│   ├── batch-prompt.md          # Self-contained worker prompt
-│   └── batch-runner.sh          # Orchestrator script
-├── dashboard/                   # Go TUI pipeline viewer
-├── data/                        # Your tracking data (gitignored)
-├── reports/                     # Evaluation reports (gitignored)
-├── output/                      # Generated PDFs (gitignored)
-├── fonts/                       # Space Grotesk + DM Sans
-├── docs/                        # Setup, customization, budget guide, architecture
-└── examples/                    # Sample CV, report, proof points
+```sh
+node lean-setup.mjs --bind-skills "$HOME/.codex/skills"
+node lean-setup.mjs --install-skills
 ```
 
-## External Data Directory (Optional)
+使用自定义 `CODEX_HOME` 时传入它实际的 `skills` 目录。不要复制旧电脑的 `installation.json`。
 
-By default, user-layer data (such as `cv.md`, `portals.yml`, and `data/` / `reports/` / `output/` folders) lives inside the project root folder. 
+恢复后需重新登录 Chromium，并按“每日定时导入”在新电脑建立任务。若旧电脑仍运行，删除其任务，避免两台电脑各维护一份不同的岗位状态。
 
-To separate your personal data from the code (making it easier to switch branches, pull updates, or test multiple profiles), you can configure an external data directory using the following precedence:
+依赖版本、静态字体、模板和事实可固定；跨系统 PDF 的元数据或二进制哈希不保证相同。招聘网站、登录验证和实时岗位列表会变化，不能通过备份固定其行为。
 
-1. **Environment Variables:** Set the `CAREER_OPS_ROOT` or `CAREER_OPS_DATA_DIR` environment variable:
-   ```bash
-   export CAREER_OPS_ROOT=~/my-career-data
-   ```
-2. **Marker File:** Create a `.career-ops-data` file in the repository root containing the path to your data directory.
-3. **Default:** Defaults to the repository root.
+## 日常使用
 
-Once resolved, all user files are resolved and written relative to that folder, while prompt files and scripts continue to resolve relative to the repository. 
+### 发现岗位
 
-- **Tracker Override:** You can also set `CAREER_OPS_TRACKER` to override the applications tracker file path directly.
-- **Writes:** All write operations (such as merges) canonically target `{DATA_ROOT}/data/applications.md`.
-- **Scanner config:** `portals.yml` is read and validated at `{DATA_ROOT}/portals.yml`, so `node validate-portals.mjs` checks the same file `scan.mjs` reads.
-- **Generated documents:** tailored CVs and cover letters are written under `{DATA_ROOT}/output/`, and the PDF manifest that links them to a report lives at `{DATA_ROOT}/data/pdf-index.tsv`. While `CAREER_OPS_TRACKER` is unset, the tracker workspace that bounds those writes is the data root, not the checkout.
-- **PDFs under a tracker override:** `generate-pdf.mjs` resolves `CAREER_OPS_TRACKER` before it derives the workspace, so with the override set the workspace is the folder that holds that tracker (or the folder above it, when the tracker sits in a `data/` folder). The CV's HTML and every PDF must then sit inside that workspace, and the manifest moves to its `data/pdf-index.tsv`. Cover letters still target `{DATA_ROOT}/output/`, so they are refused when that folder falls outside the tracker's workspace.
-- **Code layer stays put:** `node_modules/`, `providers/`, `modes/` and the scripts themselves always resolve against the repository, never the data root.
+在 Codex 直接说：
 
-The Go dashboard TUI, Node.js scripts, and AI agent modes all automatically respect this resolution hierarchy.
+> 用 `$career-ops-job-ingestion` 刷新 new grad 岗位，只给我新增数量和最多十条待核实岗位。
 
+或在终端运行：
 
-## Tech Stack
+```sh
+npm run jobs:ingest
+```
 
-![Claude Code](https://img.shields.io/badge/Claude_Code-000?style=flat&logo=anthropic&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
-![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=flat&logo=playwright&logoColor=white)
-![Go](https://img.shields.io/badge/Go-00ADD8?style=flat&logo=go&logoColor=white)
-![Bubble Tea](https://img.shields.io/badge/Bubble_Tea-FF75B5?style=flat&logo=go&logoColor=white)
+两个岗位源：
 
-- **Agent**: AI coding CLI with shared skills and modes (`AGENTS.md` + CLI wrapper)
-- **PDF**: Playwright + HTML template
-- **Cover letters**: HTML template + Playwright (A4 PDF, same pipeline as CVs)
-- **Scanner**: Playwright + Greenhouse API + WebSearch
-- **Dashboard**: Go + Bubble Tea + Lipgloss (Catppuccin Mocha theme)
-- **Data**: Markdown tables + YAML config + TSV batch files
+| 子模块 | 分支 | 导入内容 |
+|---|---|---|
+| `data/job-sources/2027-swe-college-jobs` | `main` | SpeedyApply 美国及国际 new grad 列表 |
+| `data/job-sources/new-grad-positions` | `dev` | Simplify New-Grad-Positions README |
 
-<p align="center">
-  <a href="https://github.com/career-ops-hq/career-ops/releases/latest"><img src="https://img.shields.io/npm/v/%40santifer%2Fcareer-ops?style=for-the-badge&labelColor=2b3137&color=2ea44f&label=release" alt="Latest release"></a>
-</p>
+不导入 SpeedyApply internship 列表，不执行源仓库脚本。克隆时使用仓库记录的固定提交；`--refresh` 才跟随上述分支更新。每日更新后，Git 可能显示两个 submodule 指针有变化，这是来源更新，不是个人数据被暂存。
 
-<p align="center">
-  <a href="https://claude.com/claude-code"><img src="https://img.shields.io/badge/Built_with-Claude_Code-000?style=for-the-badge&logo=anthropic&logoColor=white" alt="Built with Claude Code"></a>
-</p>
+结果保存在 `data/lean/jobs.json`、`shortlist.md`、`last-run.json`。命令直接返回计数和 `top_new`，最多十条新增候选；**不要把完整岗位 JSON 或清单读进模型上下文**。重复运行不会重复入队；申请 tracker 中已有规范 URL 的岗位不会再次被列为待投。来源不再列出的岗位只标为未列出，不自动声称已经关闭。
 
-<p align="center">
-  <sub>Also runs on any agent-skill-standard CLI. See <a href="docs/SUPPORTED_CLIS.md">Supported CLIs</a>.</sub><br>
-  <img src="https://img.shields.io/badge/Claude_Code-000?style=flat&logo=anthropic&logoColor=white" alt="Claude Code">
-  <img src="https://img.shields.io/badge/OpenCode-111827?style=flat&logo=terminal&logoColor=white" alt="OpenCode">
-  <img src="https://img.shields.io/badge/Antigravity_CLI-4285F4?style=flat&logo=google&logoColor=white" alt="Antigravity CLI">
-  <img src="https://img.shields.io/badge/Codex-412991?style=flat&logo=openai&logoColor=white" alt="Codex">
-  <img src="https://img.shields.io/badge/Qwen-615CED?style=flat" alt="Qwen">
-  <img src="https://img.shields.io/badge/Kimi-FF4B4B?style=flat" alt="Kimi">
-  <img src="https://img.shields.io/badge/GitHub_Copilot-000?style=flat&logo=githubcopilot&logoColor=white" alt="GitHub Copilot">
-  <img src="https://img.shields.io/badge/Grok_Build_CLI-000?style=flat&logo=x&logoColor=white" alt="Grok Build CLI">
-  <img src="https://img.shields.io/badge/Pi-4B3F72?style=flat" alt="Pi">
-  <br>
-  <img src="https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white" alt="Node.js">
-  <img src="https://img.shields.io/badge/Go-00ADD8?style=flat&logo=go&logoColor=white" alt="Go">
-  <img src="https://img.shields.io/badge/Playwright-2EAD33?style=flat&logo=playwright&logoColor=white" alt="Playwright">
-  <img src="https://img.shields.io/badge/Bubble_Tea-FF75B5?style=flat&logo=go&logoColor=white" alt="Bubble Tea">
-  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT">
-  <a href="TRADEMARK.md"><img src="https://img.shields.io/badge/Trademark-Policy-blue.svg" alt="Trademark Policy"></a>
-</p>
+### 处理一个 JD 并生成简历
 
-## Also Open Source
+在仓库目录打开 Codex，或使用已安装的全局 skill：
 
-- **[cv-santiago](https://github.com/santifer/cv-santiago)** -- The portfolio website (santifer.io) with AI chatbot, LLMOps dashboard, and case studies. If you need a portfolio to showcase alongside your job search, fork it and make it yours.
+> 用 `$career-ops` 精简流程处理这个 JD：……。先检查硬性条件，通过后按真实履历生成单页英文简历；不确定的先问我。
 
-## FAQ
+可粘贴 JD 或雇主职位 URL。助手只提取一次 JD；Workday 优先使用其公开 CXS 接口。提取失败时请求你粘贴正文，不反复操纵网页。
 
-**What is career-ops?**
-career-ops ([career-ops.org](https://career-ops.org), also known as **careerops**) is an open-source AI job search that runs locally in your AI coding CLI (Claude Code, Codex, OpenCode and others) and leaves every decision to you. It evaluates job offers against your CV, generates ATS-tailored PDFs, finds the right person to contact, and tracks everything in one place: you always have the final call. It is the first reference implementation of the [CareerOps Manifesto](https://career-ops.org/manifesto).
+默认入口 `auto-pipeline`、`pipeline`、`pdf`、`buildcv`、`apply` 都使用精简模式。公司研究、面试或求职信等上游功能仅在明确要求时按需加载，不是简历生成的前置条件。
 
-**Can the tailored CV invent things?**
-It must not, and the prompts say so: reformulate, never fabricate. `generate-pdf` blocks a CV whose numbers or facts are missing from your sources, unless you pass `--skip-fact-check`. The `pdf` mode also runs `cv-title-check.mjs`, which compares each job title in the tailored CV with the title cv.md gives the same job (matched by company and dates) and asks you to keep or revert any that differ. It warns rather than blocks, because reframing a title is sometimes your call. Nothing judges rewording yet: [#1411](https://github.com/career-ops-hq/career-ops/issues/1411) (fail-closed faithfulness check) tracks that. Until then, read every CV before you send it. The [Legal Disclaimer](LEGAL_DISCLAIMER.md) says the same in longer words.
+### 硬性筛选规则
 
-**Can I run career-ops for free, or on a cheaper / local model?**
-Yes. career-ops is CLI-agnostic and runs on free and local models (OpenRouter free models, Ollama or any OpenAI-compatible endpoint), so you are not tied to a paid subscription. See [docs/RUNNING_ON_A_BUDGET.md](docs/RUNNING_ON_A_BUDGET.md) for the full setup.
+`screening` 中使用 ISO 两位国家代码，日期格式为 `YYYY-MM-DD`：
 
-**I pay for Claude Pro/Max but career-ops is burning API credits. Why?**
-Because an `ANTHROPIC_API_KEY` in your environment takes precedence over your logged-in subscription: the CLI uses the key and bills per token. Run `echo $ANTHROPIC_API_KEY`, and if it prints anything, remove it from your shell profile, restart the terminal and run `/login`. Batch mode is the exception, since `claude -p` workers do not use the interactive login: run `claude setup-token` once and export the result as `CLAUDE_CODE_OAUTH_TOKEN`. Full walkthrough in [docs/RUNNING_ON_A_BUDGET.md](docs/RUNNING_ON_A_BUDGET.md#2b-already-paying-for-a-subscription-make-sure-you-are-using-it).
+| 字段 | 含义 |
+|---|---|
+| `countries` | 目标招聘国家；不把 remote 理解为全球可工作 |
+| `employment_types` | 如 `[fulltime]` |
+| `full_time_years` | 已确认全职经验，实习单列、不自行折算 |
+| `work_authorization` | 按国家填写现有许可，未知填 `null` |
+| `future_sponsorship_required` | 按国家填写未来是否需要 sponsor |
+| `graduation_date` / `available_from` | 毕业日、最早入职日 |
+| `us_citizen` | 国籍声明独立确认；OPT 不用于推断国籍 |
 
-**Which AI CLIs does career-ops work with?**
-career-ops runs on any major AI coding CLI (Claude Code, Codex, Gemini / Antigravity, OpenCode, Grok, Qwen and more) through the open Agent Skill Standard, so it is never locked to a single vendor. Use the CLI you already have.
+明确不满足的必要条件才会 `skip`。preferred 不转为硬条件；未说明 sponsor、学位替代、经验是否计入实习等保留 `needs-review`。源列表不是完整 JD 或仍在招聘的证明，选中岗位后还需阅读雇主 JD。
 
-**How do I install career-ops on Windows?**
-career-ops runs on Windows. Platform-specific setup and the known sharp edges (Git Bash discovery, line endings, Task Scheduler) are in [docs/WINDOWS.md](docs/WINDOWS.md). If skills fail to load with a symlink error during install, the fix is in [docs/FAQ.md](docs/FAQ.md). Full steps are in [docs/SETUP.md](docs/SETUP.md). On NixOS, use the flake dev shell instead of `npx playwright install`; see [docs/NIXOS.md](docs/NIXOS.md).
+本地预筛 JSON 至少包含 `{url,company,title,country,text,metadata_only:false}`。人工解读确认后还可加入 `min_experience_years`、`requires_existing_authorization`、`sponsorship: no|yes|unknown`、`graduation_from`、`graduation_to`、`latest_start_date`、`citizenship: US`。脚本不声称能全面理解自然语言，无法确定的要求仍应询问。
 
-**Does career-ops auto-apply to jobs for me?**
-No. career-ops is a filter, not a spray-and-pray auto-applier. The AI evaluates, ranks and drafts; you review and decide. It drafts and fills; it never submits. You press Submit. That human-in-the-loop design is the whole point.
+### 简历字号、所在地与项目选择
 
-**Is career-ops free and open source?**
-Yes. career-ops is free and open source, and for the candidate it always will be. It is the first reference implementation of the [CareerOps Manifesto](https://career-ops.org/manifesto). Read it, and if it says what you believe, sign it.
+默认 `cv.template: lean`：正文 **11pt**，联系方式和项目技术行 **10pt**，次级信息约 **10.5pt**，静态 Vera 字体随 PDF 内嵌，不依赖新电脑安装了什么字体。纸张为 Letter，页边距 0.45 英寸。
 
-## About the Author
+`max_pages: 1` 和 `strict_pages: true` 会拒绝超页结果，不会把第二页偷偷裁掉。内容太多时按 JD 精选项目或精简重复句，不自动缩小字号。
 
-I'm [Santiago Fernández de Valderrama Aparicio](https://santifer.io/about) (santifer), a former founder: I built and sold a business that still runs with my name on it. I built career-ops to manage my own job search, and it worked: it landed me a Head of Applied AI role. Six months later I left that role to focus on building career-ops full time.
+- `cv.show_location: false`：省略页眉所在地；显示时也只能使用真实地点。
+- `cv.projects: auto`：助手从 `cv.md` 中按 JD 选择真实项目。
+- `cv.projects: omit`：不显示项目。
+- `cv.projects` 为名称列表：只允许列表内的项目。
 
-Curious how a repo this size is maintained with a fleet of AI agents and a human deciding every merge? Read [Agentic maintenance: how career-ops is run by a fleet of AI agents](https://santifer.io/ai-agent-fleet).
+基稿已经合适时，助手可只输出变化字段：
 
-My portfolio and other open source projects → [santifer.io](https://santifer.io)
+```sh
+node lean-buildcv.mjs --base output/base-source.json --patch output/job.patch.json output/company-role
+```
 
-Wikidata: [Santiago Fernández de Valderrama Aparicio](https://www.wikidata.org/wiki/Q138710224) · [career-ops](https://www.wikidata.org/wiki/Q139007988).
+patch 是 JSON 对象：对象递归合并，数组整体替换，`null` 删除字段。例如 `{"candidate":{"location":null}}`。基稿需由自己的事实库生成；恢复旧基稿后仍以 `cv.md` 核对事实。合并结果会重新运行相同的标题、事实、结构和单页检查。
 
-## Disclaimer
+### Chromium 登录、上传与人工提交
 
-**career-ops is a local, open-source tool, NOT a hosted service.** By using this software, you acknowledge:
+先请求具体投递目的地，生成材料后运行：
 
-1. **You control your data.** Your CV, contact info, and personal data stay on your machine and are sent directly to the AI provider you choose (Anthropic, OpenAI, etc.). We do not collect, store, or have access to any of your data.
-2. **You control the AI.** The default prompts instruct the AI not to auto-submit applications, but AI models can behave unpredictably. If you modify the prompts or use different models, you do so at your own risk. **Always review AI-generated content for accuracy before submitting.**
-3. **You comply with third-party ToS.** You must use this tool in accordance with the Terms of Service of the career portals you interact with (Greenhouse, Lever, Workday, LinkedIn, etc.). Do not use this tool to spam employers or overwhelm ATS systems.
-4. **No guarantees.** Evaluations are recommendations, not truth. AI models may hallucinate skills or experience. The authors are not liable for employment outcomes, rejected applications, account restrictions, or any other consequences.
+```sh
+node lean-handoff.mjs --url https://employer.example/application --resume /absolute/path/to/output/company-role.pdf --upload
+```
 
-See [LEGAL_DISCLAIMER.md](LEGAL_DISCLAIMER.md) for full details. This software is provided under the [MIT License](LICENSE) "as is", without warranty of any kind.
+把示例 URL 和文件地址换成真实值。Chromium 使用 `data/lean/chromium/` 下的专用本地 profile。你手动登录、处理 MFA / CAPTCHA，并进入 Resume/CV 上传步骤。
 
-## Contributors
+`--upload` 只授权向指定雇主域名的一个明确 Resume/CV 文件框附加一次 PDF；最多等待十分钟，成功或结果不明后都停止自动尝试。多个文件框、非标准控件或跳转到别的域名时改为手动上传，或使用最终雇主申请域名重开。上传后在网页确认附件成功，剩余下拉选择、问题和 **Submit 由你操作**。关闭窗口结束助手。
 
-<a href="https://github.com/career-ops-hq/career-ops/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=career-ops-hq/career-ops" />
-</a>
+没有自动填表循环，没有自动注册、邮件发送或最终提交。上传不等于 Applied。你确认已提交后，才通过上游 tracker writer 记录申请，评分用 `N/A`，不虚构评估报告。
 
-Every person who has shipped code, docs, translations or tests is listed in
-[CONTRIBUTORS.md](CONTRIBUTORS.md), including non-code contributions, which
-the graph above cannot show.
+## 每日定时导入
 
-Got hired using career-ops? [Share your story!](https://github.com/career-ops-hq/career-ops/issues/new?template=i-got-hired.yml)
+本次设置是两个独立任务，每次新上下文运行，使用 **`gpt-6-luna` / `low`**：
 
-## License & Trademark
+| 纽约时间（America/New_York） | 加州时间（America/Los_Angeles） |
+|---|---|
+| 10:20 | 07:20 |
+| 13:30 | 10:30 |
 
-The code is licensed under [MIT](LICENSE). The "career-ops" name and
-brand are governed by the [Trademark Policy](TRADEMARK.md), permissive
-for community use, reserved for commercial product naming and
-endorsement.
+旧的 09:00 长聊天任务已移除。不要把两组小时和分钟简单合成一个交叉组合，否则可能错误运行四次。
 
-## Star history
+任务提示词只需指定本机项目目录、调用 `$career-ops-job-ingestion` 并运行 `node lean-ingest.mjs --refresh`，直接汇报返回的计数和 `top_new`。不做 eval、不生成 CV、不打开每个岗位、不修改 profile，也不提交或推送文件。
 
-<p align="center">
-  <a href="https://warpchart.dev/hq">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://warpchart.dev/api/chart?theme=dark&v=3">
-      <img alt="Live star telemetry of career-ops-hq/career-ops" src="https://warpchart.dev/api/chart?theme=light&v=3" loading="lazy">
-    </picture>
-  </a>
-</p>
+换电脑时，使用 Codex 的定时任务功能重新创建，明确要求：**每次独立任务、Luna、低推理、本地执行、纽约时区、上述两个时间、当前电脑的仓库路径**。可直接在 Codex 说：
 
-<p align="center"><sub>Created and maintained by <a href="https://santifer.io">Santiago Fernández de Valderrama Aparicio</a> (<a href="https://github.com/santifer">@santifer</a>)</sub></p>
+> 为当前 career-ops 目录建立两个独立的每日岗位导入任务，按纽约时区每天 10:20 和 13:30 运行；用 gpt-6-luna、低推理，调用 career-ops-job-ingestion，只执行本地导入并汇报新增岗位。不要使用当前长聊天历史。
 
-## Let's Connect
+如果新电脑系统时区在加州，需要确认任务仍按纽约时区运行，或设置对应的 07:20 / 10:30。定时任务属于本机应用配置，不会随 Git 或私人资料备份自动迁移。
 
-[![Website](https://img.shields.io/badge/santifer.io-000?style=for-the-badge&logo=safari&logoColor=white)](https://santifer.io)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/santifer)
-[![X](https://img.shields.io/badge/X-000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/santifer)
-[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/8pRpHETxa4)
-[![Email](https://img.shields.io/badge/Email-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:hi@santifer.io)
+需要本地文件的任务要求电脑开机且桌面应用在运行；见 [官方定时任务说明](https://learn.chatgpt.com/docs/automations?surface=app)。首次真实定时运行的成功状态应在任务结果中核对，安装检查不等于已经发生过一次定时运行。
+
+## 模型与 token 预算
+
+### 默认模型究竟是什么
+
+| 环节 | 模型 / 推理设置 |
+|---|---|
+| 岗位拉取、解析、去重和硬条件代码 | **无模型，0 个模型 API token** |
+| 两次独立定时任务的调度与汇报 | **gpt-6-luna / low**，在任务设置中明确指定 |
+| 新的可信仓库 Codex 会话、简历定制 | **gpt-6.1-sol / medium**，由 `.codex/config.toml` 指定 |
+| HTML/PDF、事实/标题/一页检查、附件助手 | **无模型** |
+
+本机修改前的全局配置为 Sol / xhigh；全局配置没有改动。已经打开的旧聊天、界面选择、CLI 覆盖或受管理策略可以覆盖仓库默认值。要显式启动同一设置：
+
+```sh
+codex -m gpt-6.1-sol -c model_reasoning_effort=medium
+```
+
+仅设置 `spend_tier: economy` 不会替你切换 Codex 当前模型。配置优先级见 [官方配置说明](https://learn.chatgpt.com/docs/config-file/config-basic)。Luna 适合范围明确的频繁自动化；简历措辞与复杂要求保留 Sol，参考 [官方模型选择指南](https://developers.openai.com/api/docs/guides/model-selection)。
+
+### 每天大约多少 token
+
+**以下是预算估算，不是实测的每日账单。**项目文本按英文字符数约除以 4 估算；平台系统提示词、工具定义、历史和推理无法从仓库文件精确推出。
+
+需要区分：本地导入脚本是 0 token，但唤起 AI 运行命令和汇报并非 0 token。输入统计也可能包含同一上下文重复发送及缓存命中。
+
+估算假设：每次请求平台上下文 `H = 30,000` token；每天两次导入，每次 3 次模型请求（读取 skill、执行命令、汇报）；每个选中岗位平均 6 次模型请求；JD 2,000 token。若宿主预先加载了 skill 可以更少，遇到问题或返工则会增加。
+
+| 每天工作量 | 累计输入（含重复上下文） | 可见输出估计 | 额外推理预算 |
+|---|---:|---:|---:|
+| 仅两次独立岗位导入 | 约 18.7 万 | 400–1,800 | 200–1,400 |
+| 导入 + 5 个选中岗位 | 约 125 万 | 2,900–14,300 | 1,700–16,400 |
+| 导入 + 10 个选中岗位 | 约 230 万 | 5,400–26,800 | 3,200–31,400 |
+
+不同 profile、JD、模型宿主和调用次数会改变数字，表内输入值保留约 ±25% 的规划区间；该区间不能保证覆盖所有长聊天或重试。**缓存输入不等于新增文本，API 账单、订阅配额和累计 token 也不能直接互换。**没有把安装开发过程的 token 冒充成每日导入实测。
+
+可以按自己的工作量重新估算：
+
+```sh
+npm run tokens:estimate -- --jobs 5
+node lean-token-budget.mjs --jobs 10 --host-tokens 30000 --calls-per-job 6 --calls-per-ingest 3
+```
+
+公式：每日输入约等于 `导入次数 × 每次请求数 × (H + 导入材料)` 加上 `岗位数 × 每岗请求数 × (H + profile/CV/规则/JD)`。定时任务真正运行后，优先用其 usage 记录替换假设。旧长聊天可能单次就带入二十多万输入；分离任务可以减少这部分历史，不能保证所有模型宿主都有一样小的固定开销。
+
+### 已落实的节省措施与质量边界
+
+1. 仅载入简短的默认入口，上游的大型评估说明按明确请求才读取。
+2. 岗位导入完全本地运行；模型只看紧凑计数及最多十条新增数据。
+3. 独立 Luna / low 定时任务，不继承安装和开发长聊天。
+4. 一个 JD 提取一次；失败就请求正文，不消耗模型操纵网页反复重试。
+5. 复用已批准基稿，以 JSON patch 表达修改，减少重复输出；不重复生成 HTML/CSS。
+6. PDF、字体、事实、标题、日期和页数由本地代码校验，不额外调用模型打分。
+7. 人工登录和完成网页，助手只处理一次简历附件，不进行字段遍历。
+
+这些措施不取消 source-of-truth 核对、不把未知 sponsor 当作通过，也不把不确定提交当作成功。模型与推理调整并未做双模型盲测，因此不宣称所有措辞质量完全相同；重要岗位可主动在 Sol 的更高推理档位处理，不需要增加评估流水线。
+
+## 命令速查
+
+| 任务 | 命令 |
+|---|---|
+| 初始化缺失的本地配置 | `npm run setup:lean` |
+| 安装或刷新全局 skill | `npm run skills:install` |
+| 虚构候选人离线示例 | `npm run demo` |
+| 更新两个岗位来源 | `npm run jobs:ingest` |
+| 不联网重建队列和清单 | `node lean-ingest.mjs` |
+| 预筛一个 job JSON | `node lean-prescreen.mjs data/lean/job.json` |
+| 完整 payload 生成 PDF | `node lean-buildcv.mjs output/payload.json output/company-role` |
+| 基稿 + patch 生成 PDF | `node lean-buildcv.mjs --base output/base-source.json --patch output/job.patch.json output/company-role` |
+| Chromium 登录与一次附件 | `node lean-handoff.mjs --url URL --resume /absolute/output/cv.pdf --upload` |
+| 导出私人资料 | `node lean-backup.mjs export local/private-backup.json` |
+| 恢复私人资料 | `node lean-backup.mjs import /path/private-backup.json --overwrite` |
+| token 预算估算 | `npm run tokens:estimate -- --jobs 5` |
+| 精简流程与迁移测试 | `npm run test:lean` |
+
+## 故障排查
+
+| 现象 | 处理 |
+|---|---|
+| 找不到 Chromium / 缺少系统库 | 重跑与 lockfile 对应的浏览器安装命令；Linux 用 `--with-deps` |
+| 新电脑找不到项目或 skill 指向旧路径 | 在新克隆目录重新安装 skill，或用 `--bind-skills` 指向现有全局目录 |
+| 提示尚无 cv.md / profile | 恢复备份，或按真实资料填写；不要套用上游作者的 profile |
+| 事实、标题或日期检查失败 | 回到事实来源核对；不使用跳过事实检查选项 |
+| 简历超过一页 | 按 JD 删减低相关内容或重复句，保留必要事实，不缩小 11pt 正文 |
+| 字体变化 / PDF 乱码 | 确认 `fonts/Vera*.ttf` 完整，使用锁定 Chromium；非拉丁文本需要另外选有相应字符集的字体 |
+| submodule 有本地改动 | 先检查并保存改动；导入器不会强制覆盖源目录 |
+| 新来源格式变了 / 拉取失败 | 保留现有队列，修复解析或网络后重跑；不要假装本次刷新成功 |
+| sponsor 未说明 | `needs-review`；需要核实，不自动拒绝或通过 |
+| 上传控件没识别出来 | 直接手动选择生成的 PDF；不要开启长时间网页填表循环 |
+| 定时任务没运行 | 检查本机应用、开机状态、时间/时区、账户模型可用性、网络和目录权限 |
+
+## 更新、验证与上游
+
+更新这个 fork 使用正常 Git 流程，例如 `git pull --ff-only origin lean-workflow`，先处理自己的代码改动。私人资料不受 Git pull 管理；定期用导出命令保留备份。两个 submodule 的每日更新独立于程序更新。
+
+本次验证包含：本地预筛与去重、实际源列表重复导入、Chromium 本地附件且不提交、迁移往返及凭证排除、基稿 patch、固定依赖安装、虚构候选人 PDF，以及私人资料在新目录恢复后重新生成单页 PDF。没有执行真实申请，也没有声称已完成跨操作系统实测或未来定时运行。
+
+上游功能和说明保留在 [原版 README](docs/README_UPSTREAM.md) 与按需加载的上游规则中。此 fork 的默认用法以本 README 为准；其他原版语言 README 不代表本分支的精简流程。上游项目采用 MIT 许可证；字体附带自己的许可证。

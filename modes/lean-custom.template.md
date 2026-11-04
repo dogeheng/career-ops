@@ -12,3 +12,7 @@ The standing default is **pre-screen → buildcv → sign in on Chromium → upl
 - No automatic Submit/Send, no auto-registration, no emailed outreach. Upload only to the specific application destination I requested. Never label an upload as an application submitted.
 - Daily ingestion updates only the two configured public job-source submodules, deduplicates and screens metadata locally. It does not generate CVs, browse every job, or submit applications. Summarize counts and a small shortlist rather than dumping the entire queue.
 - Keep profile, cv.md, contact data, generated CVs, login sessions and job state out of Git. Preserve fork code with normal Git updates; do not run the upstream system updater over this fork.
+
+## Efficiency and readability
+
+Use the readable lean template with 11pt body text and the strict one-page gate. Select relevant content rather than shrinking fonts. Reuse an approved base CV through --base/--patch when useful, but keep cv.md as the factual source and all deterministic gates enabled. Ingestion returns counts and top_new directly; never load the full jobs.json or shortlist into model context for routine daily reporting.

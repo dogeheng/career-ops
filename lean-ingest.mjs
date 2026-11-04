@@ -76,6 +76,7 @@ export async function ingest({ refresh = false, root = getCareerOpsRoot(), profi
       skipped: queue.filter(j => j.source_listed && j.screen.status === 'skip').length,
       needs_review: ready.length, already_tracked: queue.filter(j => j.source_listed && j.state === 'tracked').length,
       shortlist: join(dir, 'shortlist.md'), queue: path,
+      top_new: ready.filter(j => !known.has(j.key)).slice(0, 10).map(j => ({ company: j.company, title: j.title, country: j.country, url: j.url, review: j.screen.questions.map(q => q.code) })),
       source_revisions: Object.fromEntries(JOB_SOURCES.map(s => [s.id, git(['-C', `data/job-sources/${s.id}`, 'rev-parse', 'HEAD'])])) };
     writeFileAtomic(join(dir, 'last-run.json'), JSON.stringify(result, null, 2) + '\n');
     return result;

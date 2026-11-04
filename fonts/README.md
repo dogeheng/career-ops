@@ -1,5 +1,12 @@
 # Bundled CV fonts
 
+The lean template uses four static Bitstream Vera faces (`Vera.ttf`,
+`VeraBd.ttf`, `VeraIt.ttf`, `VeraBI.ttf`), redistributed unmodified with
+`bitstream-vera-license.txt`. They are embedded in PDFs, so font availability
+on another computer does not change the Latin résumé's line wrapping.
+Source distribution: ReportLab's bundled fonts. The template uses 11pt body
+text and keeps the existing one-page rejection gate.
+
 `templates/resume-template.html` embeds these files via `@font-face`, and
 `generate-pdf.mjs` inlines them as `data:` URLs so PDF rendering makes no
 network requests. Only the latin and latin-ext subsets are bundled.

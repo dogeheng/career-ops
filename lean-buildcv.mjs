@@ -8,11 +8,14 @@ import { loadYaml } from './lib/yaml-document.mjs';
 import { getCareerOpsRoot, getProfilePath } from './path-resolver.mjs';
 import { resolveTemplate } from './cv-templates.mjs';
 import { writeFileAtomic } from './tracker-utils.mjs';
+import { applyCvPatch } from './lib/lean-cv-patch.mjs';
 
 const code = dirname(fileURLToPath(import.meta.url));
-const [input, stem] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const patchMode = args[0] === '--base' && args[2] === '--patch' && args.length === 5;
+const [input, stem] = patchMode ? [args[1], args[4]] : args;
 if (!input || !stem || input === '--help') {
-  console.log('node lean-buildcv.mjs <payload.json> <output-stem>\nOutputs .json/.html/.pdf under DATA_ROOT/output. No model calls or evaluation report.');
+  console.log('node lean-buildcv.mjs <payload.json> <output-stem>\nnode lean-buildcv.mjs --base <base.json> --patch <patch.json> <output-stem>\nOutputs .json/.html/.pdf under DATA_ROOT/output. No model calls or evaluation report.');
   process.exit(input === '--help' ? 0 : 1);
 }
 try {
@@ -21,7 +24,8 @@ try {
   const p = loadYaml(readFileSync(getProfilePath(), 'utf8')) || {};
   const out = resolve(root, stem), rel = relative(resolve(root, 'output'), out);
   if (!rel || rel.startsWith('..') || isAbsolute(rel)) throw new Error('Output stem must be inside DATA_ROOT/output/');
-  const payload = JSON.parse(readFileSync(resolve(input), 'utf8'));
+  const base = JSON.parse(readFileSync(resolve(input), 'utf8'));
+  const payload = patchMode ? applyCvPatch(base, JSON.parse(readFileSync(resolve(args[3]), 'utf8'))) : base;
   if (p.cv?.show_location === false && payload.candidate) delete payload.candidate.location;
   if (p.cv?.projects === 'omit') delete payload.projects;
   else if (Array.isArray(p.cv?.projects)) payload.projects = (payload.projects || []).filter(j => p.cv.projects.includes(j.name));

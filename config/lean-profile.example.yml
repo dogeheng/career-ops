@@ -15,7 +15,7 @@ screening:
   future_sponsorship_required: {US: null, CA: null, SG: null, AU: null}
   # Ingestion uses repository metadata; full JD screening happens per selected job.
 cv:
-  template: jake
+  template: lean
   max_pages: 1
   strict_pages: true
   show_location: false
