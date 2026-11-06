@@ -31,7 +31,7 @@ export async function startReviewServer(root = getCareerOpsRoot(), { launch = ur
       res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; form-action 'self'");
       if (req.method === 'GET' && url.pathname === '/health') return send(200, { service: 'career-ops-review' });
       if (req.method === 'POST' && url.pathname === '/internal/open' && req.headers.authorization === `Bearer ${token}`) {
-        if (!opened) {
+        if (!opened || url.searchParams.get('force') === '1') {
           const { child, native } = launch(`${origin}/launch/${token}`); opened = true;
           child.once('error', () => { opened = false; }); if (native) child.once('exit', () => { opened = false; }); child.unref();
         }
@@ -74,7 +74,7 @@ export async function startReviewServer(root = getCareerOpsRoot(), { launch = ur
   return { server, runtime, close: () => { watcher.close(); for (const peer of peers) peer.end(); server.closeAllConnections(); server.close();
     if (readJson(runtimePath(root), {})?.token === token) rmSync(runtimePath(root), { force: true }); } };
 }
-export async function openReview(root = getCareerOpsRoot()) {
+export async function openReview(root = getCareerOpsRoot(), { force = false } = {}) {
   let runtime = readJson(runtimePath(root), null);
   try { const u = new URL(runtime?.origin); if (u.protocol !== 'http:' || u.hostname !== '127.0.0.1' || !u.port || !/^[a-f0-9]{64}$/.test(runtime.token)) runtime = null; } catch { runtime = null; }
   try { if (!runtime || (await (await fetch(runtime.origin + '/health', { signal: AbortSignal.timeout(1000) })).json()).service !== 'career-ops-review') runtime = null; } catch { runtime = null; }
@@ -86,12 +86,12 @@ export async function openReview(root = getCareerOpsRoot()) {
       child.once('message', message => { clearTimeout(timer); child.disconnect(); child.unref(); resolve(message); });
     });
   }
-  const response = await fetch(runtime.origin + '/internal/open', { method: 'POST', headers: { Authorization: `Bearer ${runtime.token}` }, signal: AbortSignal.timeout(5000) });
+  const response = await fetch(runtime.origin + '/internal/open' + (force ? '?force=1' : ''), { method: 'POST', headers: { Authorization: `Bearer ${runtime.token}` }, signal: AbortSignal.timeout(5000) });
   if (!response.ok) throw Error('Could not open review window');
   return { opened: true, origin: runtime.origin };
 }
 if (isMainModule(import.meta.url)) {
   if (process.argv[2] === '--serve') { const instance = await startReviewServer(); process.send?.(instance.runtime); }
-  else if (process.argv[2] === '--open') console.log(JSON.stringify(await openReview()));
+  else if (process.argv[2] === '--open') console.log(JSON.stringify(await openReview(getCareerOpsRoot(), { force: true })));
   else { console.error('node lean-review.mjs --open'); process.exitCode = 1; }
 }

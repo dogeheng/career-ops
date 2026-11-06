@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { EventEmitter } from 'node:events';
 import { chromium } from 'playwright';
 import { command } from '../lean-apply.mjs';
 import { readState, claimNext, setJob, changeState, rememberAnswer, lookupAnswer, retryJob } from '../lib/lean-apply.mjs';
@@ -121,4 +122,12 @@ test('desktop launchers have explicit macOS, Windows and Linux paths without she
     let got;launchWindow('http://127.0.0.1:12345/launch/abc',platform,(exe,args,options)=>{got={exe,args,options};return {};});
     assert.ok(got.args.includes('http://127.0.0.1:12345/launch/abc'));assert.notEqual(got.options.shell,true);
   }
+});
+
+test('automatic questions reuse one window; explicit reopen works after a browser tab is closed', async t=>{
+  const root=fixture(t);let launches=0;
+  const instance=await startReviewServer(root,{launch:()=>{launches++;const child=new EventEmitter();child.unref=()=>{};return {child,native:false};}});t.after(()=>instance.close());
+  const {origin,token}=instance.runtime,options={method:'POST',headers:{Authorization:'Bearer '+token}};
+  await fetch(origin+'/internal/open',options);await fetch(origin+'/internal/open',options);assert.equal(launches,1);
+  await fetch(origin+'/internal/open?force=1',options);assert.equal(launches,2);
 });
