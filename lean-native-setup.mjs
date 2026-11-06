@@ -27,7 +27,7 @@ try {
     const app = join(dir, 'CareerOps Notifier.app'), contents = join(app, 'Contents');
     mkdirSync(join(contents, 'MacOS'), { recursive: true });
     const binary = join(contents, 'MacOS/CareerOpsNotifier');
-    run('/usr/bin/xcrun', ['swiftc', '-O', '-swift-version', '5', '-module-cache-path', join(dir, 'swift-cache'), join(code, 'scripts/lean-notifier.swift'), '-o', binary, '-framework', 'AppKit', '-framework', 'UserNotifications'], { timeout: 120_000 });
+    run('/usr/bin/xcrun', ['swiftc', '-O', '-swift-version', '5', '-module-cache-path', join(dir, 'swift-cache'), join(code, 'scripts/lean-notifier.swift'), '-o', binary, '-framework', 'AppKit', '-framework', 'UserNotifications', '-framework', 'WebKit'], { timeout: 120_000 });
     writePlist(join(contents, 'Info.plist'), { CFBundleIdentifier: 'io.careerops.local.notifier', CFBundleExecutable: 'CareerOpsNotifier', CFBundleName: 'CareerOps Notifier', CFBundleDisplayName: 'CareerOps Notifier', CFBundleVersion: '1', CFBundleShortVersionString: '1.0', CFBundlePackageType: 'APPL', LSUIElement: true, NSPrincipalClass: 'NSApplication' });
     run('/usr/bin/codesign', ['--force', '--deep', '--sign', '-', app]);
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;

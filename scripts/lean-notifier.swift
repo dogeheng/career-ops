@@ -1,23 +1,45 @@
 import AppKit
 import UserNotifications
+import WebKit
 
-final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate, NSWindowDelegate, WKNavigationDelegate {
+    var reviewPanel: NSPanel?
     let args = CommandLine.arguments
     let center = UNUserNotificationCenter.current()
     func value(_ flag: String) -> String? {
         guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
         return args[i + 1]
     }
-    func finish(_ result: [String: Any]) {
+    func report(_ result: [String: Any]) {
         if let path = value("--result"), let data = try? JSONSerialization.data(withJSONObject: result) {
             try? data.write(to: URL(fileURLWithPath: path), options: .atomic)
             try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
         }
+    }
+    func finish(_ result: [String: Any]) {
+        report(result)
         DispatchQueue.main.async { NSApp.terminate(nil) }
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
         center.delegate = self
-        if args.contains("--authorize") {
+        if let address = value("--review"), let url = URL(string: address), url.scheme == "http", url.host == "127.0.0.1" {
+            let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 760, height: 700),
+                styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
+            panel.title = "Career Ops · 待回答问题"
+            panel.level = .floating
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            panel.delegate = self
+            let config = WKWebViewConfiguration()
+            config.websiteDataStore = .nonPersistent()
+            let web = WKWebView(frame: panel.contentView!.bounds, configuration: config)
+            web.autoresizingMask = [.width, .height]
+            web.navigationDelegate = self
+            panel.contentView = web
+            reviewPanel = panel
+            panel.center(); panel.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            web.load(URLRequest(url: url))
+        } else if args.contains("--authorize") {
             center.requestAuthorization(options: [.alert]) { allowed, error in
                 self.finish(["authorized": allowed, "error": error?.localizedDescription ?? ""])
             }
@@ -54,6 +76,17 @@ final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterD
                 self.finish(["opened": true])
             }
         }
+    }
+    func windowWillClose(_ notification: Notification) { NSApp.terminate(nil) }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        report(["window_visible": reviewPanel?.isVisible ?? false,
+                "always_on_top": reviewPanel?.level == .floating,
+                "process_id": ProcessInfo.processInfo.processIdentifier])
+    }
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        let url = navigationAction.request.url
+        decisionHandler(url?.scheme == "http" && url?.host == "127.0.0.1" ? .allow : .cancel)
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         if let path = response.notification.request.content.userInfo["path"] as? String { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }

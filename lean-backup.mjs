@@ -11,6 +11,7 @@ const TREES = ['data/lean', 'output', 'jds'];
 export function allowedBackupPath(path) {
   if (typeof path !== 'string' || path.includes('\\') || path.startsWith('/') || path.split('/').some(s => !s || s === '.' || s === '..' || s.startsWith('.'))) return false;
   if (path.startsWith('data/lean/chromium/') || path === 'data/lean/chromium' || path.includes('.lock/') || /\.(?:lock|tmp)$/.test(path)) return false;
+  if (['data/lean/review-runtime.json', 'data/lean/review-window-runtime.json'].includes(path)) return false; // Machine-local port, PID and session token.
   return FIXED.has(path) || TREES.some(t => path.startsWith(t + '/'));
 }
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -48,11 +49,21 @@ export function restoreBackup(bundle, root = getCareerOpsRoot(), overwrite = fal
     let bytes = Buffer.from(file.base64, 'base64');
     if (hash(bytes) !== file.sha256) throw new Error(`Checksum mismatch: ${name}`);
     if (!overwrite && existsSync(path)) throw new Error(`Already exists: ${name}; use --overwrite after checking the destination`);
-    if (name === 'data/lean/last-run.json') {
+    if (['data/lean/last-run.json', 'data/lean/native-last-run.json', 'data/lean/native-notification.json'].includes(name)) {
       const last = JSON.parse(bytes.toString('utf8'));
       if (!last || typeof last !== 'object' || Array.isArray(last)) throw new Error('Invalid last-run data');
-      last.shortlist = join(root, 'data/lean/shortlist.md'); last.queue = join(root, 'data/lean/jobs.json');
+      if ('shortlist' in last) last.shortlist = join(root, 'data/lean/shortlist.md');
+      if ('queue' in last) last.queue = join(root, 'data/lean/jobs.json');
+      if ('path' in last) last.path = join(root, 'data/lean/shortlist.md');
       bytes = Buffer.from(JSON.stringify(last, null, 2) + '\n');
+    }
+    if (name === 'data/lean/application-state.json') {
+      const state = JSON.parse(bytes.toString('utf8'));
+      for (const job of Object.values(state.jobs || {})) if (['working', 'submitting'].includes(job.status)) {
+        job.status = 'uncertain'; delete job.claim;
+        job.recovery_note = 'Moved to another computer; verify no submission occurred before retrying.';
+      }
+      bytes = Buffer.from(JSON.stringify(state, null, 2) + '\n');
     }
     return { path, bytes };
   });

@@ -2,6 +2,8 @@
 
 The default is **pre-screen → buildcv → Chromium sign-in → résumé upload → human completion and Submit**. See `docs/LEAN_QUICKSTART.zh-CN.md`.
 
+When the user explicitly authorizes continuous automatic applications, read `modes/continuous-apply.md` instead. That mode has no discovery or application quantity cap, remembers only confirmed scoped answers, and skips blocked jobs while other work continues. Its explicit user authorization overrides the manual-submit default; never infer authorization from merely having a CV or a queue. `lean-apply.mjs status` must be enabled. The default manual rules below still apply outside that authorized mode.
+
 ## Routing and context budget
 
 Read data-root `config/profile.yml` and `modes/_custom.md` first. For a JD/URL, auto-pipeline, pipeline, pre-screen, buildcv, pdf or apply use `modes/lean.md`. For scan/ingest use `.agents/skills/career-ops-job-ingestion/SKILL.md`. Lean runs in one agent: no evaluator, scored report, cover letter, research, critique loop or Playwright MCP form filling. Unknown material facts require a concise question. No upstream onboarding or update prompt is needed for the lean route.

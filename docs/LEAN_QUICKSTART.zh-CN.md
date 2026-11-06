@@ -12,6 +12,6 @@ node lean-setup.mjs --install-skills
 npm run demo
 ```
 
-使用仓库 `.nvmrc` 中的 Node 版本。恢复旧电脑资料后，可直接在 Codex 使用 `$career-ops` 加 JD，或 `$career-ops-job-ingestion` 更新岗位。最终 Submit 仍由你操作。
+使用仓库 `.nvmrc` 中的 Node 版本。恢复旧电脑资料后，可直接在 Codex 使用 `$career-ops` 加 JD，或 `$career-ops-job-ingestion` 更新岗位。默认最终 Submit 由你操作；明确授权的持续自动投递使用主 README 的“持续自动投递与待答窗口”步骤。
 
 macOS 另运行 `npm run jobs:native:install` 安装系统任务，允许 CareerOps Notifier 通知；不需要 Codex/Luna 定时任务。
