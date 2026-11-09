@@ -4,6 +4,15 @@ import { getCareerOpsRoot } from './path-resolver.mjs';
 import { isMainModule } from './lib/is-main-module.mjs';
 import { changeState, readState, claimNext, setJob, rememberAnswer, lookupAnswer, retryJob } from './lib/lean-apply.mjs';
 import { openReview } from './lean-review.mjs';
+import { loadRelayConfig, makeRelayClient, syncRelay } from './lib/lean-relay.mjs';
+
+async function deliverQuestions(root, options, showIdle = false) {
+  const relay = await syncRelay(root, options);
+  if (relay.fallback || (showIdle && relay.status === 'idle')) {
+    try { await openReview(root); } catch (error) { return { ...relay, popup_error: error.message }; }
+  }
+  return relay;
+}
 
 export async function command(args, root = getCareerOpsRoot()) {
   const [action, ...rest] = args, flags = {};
@@ -23,6 +32,12 @@ export async function command(args, root = getCareerOpsRoot()) {
     return { enabled: s.enabled, quantity_limit: null, counts, remembered_answers: s.answers.length };
   }
   if (action === 'next') return claimNext(root);
+  if (action === 'relay-status') {
+    const client = makeRelayClient(loadRelayConfig());
+    if (!client) return { configured: false };
+    await client.check(); return { configured: true, authenticated: true };
+  }
+  if (action === 'relay-sync') return deliverQuestions(root, { wait: Number(flags.wait ?? 0) });
   if (action === 'lookup') {
     const s = readState(root), job = s.jobs[flags.job]; if (!job) throw Error('Claim job first');
     return { answer: lookupAnswer(s, job, flags.question) };
@@ -38,13 +53,13 @@ export async function command(args, root = getCareerOpsRoot()) {
   if (action === 'block') {
     const p = payload();
     const job = await setJob(root, flags.job, flags.claim, 'waiting', { questions: p.questions, draft: p.draft || null });
-    try { await openReview(root); } catch (e) { return { job, popup_error: e.message, next: 'node lean-review.mjs --open' }; }
-    return { job, next: 'Question saved; continue with next job' };
+    const relay = await deliverQuestions(root, { jobKey: job.key }, true);
+    return { job: job.key, relay, next: 'Question saved; continue with next job' };
   }
   if (action === 'submit-intent') return setJob(root, flags.job, flags.claim, 'submitting');
   if (action === 'result') return setJob(root, flags.job, flags.claim, flags.status, flags.file ? payload() : {});
   if (action === 'retry') return retryJob(root, flags.job, flags['confirmed-not-submitted'] === true);
-  throw Error('node lean-apply.mjs enable --confirmed-by-user | disable | status | next | lookup --job URL --question TEXT | block --job URL --claim TOKEN --file questions.json | answer --file answer.json --confirmed-by-user | submit-intent --job URL --claim TOKEN | result --job URL --claim TOKEN --status submitted|uncertain|skipped --file evidence.json | retry --job URL --confirmed-not-submitted');
+  throw Error('node lean-apply.mjs enable --confirmed-by-user | disable | status | next | relay-status | relay-sync [--wait SECONDS] | lookup --job URL --question TEXT | block --job URL --claim TOKEN --file questions.json | answer --file answer.json --confirmed-by-user | submit-intent --job URL --claim TOKEN | result --job URL --claim TOKEN --status submitted|uncertain|skipped --file evidence.json | retry --job URL --confirmed-not-submitted');
 }
 if (isMainModule(import.meta.url)) {
   try { console.log(JSON.stringify(await command(process.argv.slice(2)), null, 2)); }

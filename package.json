@@ -12,7 +12,7 @@
     "jobs:screen": "node lean-prescreen.mjs",
     "cv:build": "node lean-buildcv.mjs",
     "apply:handoff": "node lean-handoff.mjs",
-    "test:lean": "node --test tests/lean-workflow.test.mjs tests/lean-portability.test.mjs tests/lean-native.test.mjs tests/lean-apply.test.mjs",
+    "test:lean": "node --test tests/lean-workflow.test.mjs tests/lean-portability.test.mjs tests/lean-native.test.mjs tests/lean-apply.test.mjs tests/lean-relay.test.mjs",
     "ui": "node scripts/ui-server.mjs",
     "or": "node openrouter-runner.mjs",
     "or:scan": "node openrouter-runner.mjs scan",
@@ -98,7 +98,9 @@
     "apply:status": "node lean-apply.mjs status",
     "apply:next": "node lean-apply.mjs next",
     "apply:review": "node lean-review.mjs --open",
-    "apply:disable": "node lean-apply.mjs disable"
+    "apply:disable": "node lean-apply.mjs disable",
+    "apply:relay": "node lean-apply.mjs relay-sync",
+    "apply:relay:status": "node lean-apply.mjs relay-status"
   },
   "keywords": [
     "ai",

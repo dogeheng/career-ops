@@ -383,7 +383,7 @@ node lean-token-budget.mjs --jobs 10 --host-tokens 30000 --calls-per-job 6 --cal
 这是明确授权后才启用的模式；新的克隆默认关闭。流程定义在 `modes/continuous-apply.md`，可迁移的定时任务正文在 `modes/continuous-schedule.prompt.md`。
 
 - **不限数量**：导入所有源记录，领取并处理所有符合条件的岗位，没有每日 3 份或每轮 10 份的上限。界面/日志的摘要长度不限制岗位发现或投递。宿主的时间、上下文、额度及人工接管仍可能中断一轮，下次从持久队列继续。
-- **遇到不会的先跳过**：记录原题、选项和草稿。待答窗口在 macOS 是常驻置顶窗口；Windows/Linux 使用系统浏览器中的常驻页面。关闭窗口不会删除问题。浏览器登录、MFA、CAPTCHA 或用户接管可能暂停整轮浏览器操作，不能保证在接管期间仍能填写其他网站。
+- **遇到不会的先跳过**：记录原题、选项和草稿，通过 dsh-omni 中继发到 QQ。本地回退窗口在 macOS 是置顶窗口；Windows/Linux 使用系统浏览器中的常驻页面。关闭窗口不会删除问题。浏览器登录、MFA、CAPTCHA 或用户接管可能暂停整轮浏览器操作，不能保证在接管期间仍能填写其他网站。
 - **记住实际回答**：窗口回答自动保存；聊天里的明确回答由 agent 用 `answer --confirmed-by-user` 保存。默认只适用于该岗位，可以由用户选择扩大到同公司、同国家或全局。精确题目匹配、具体范围优先；offer 截止日期等时效信息必须设置失效日期。不会把一家公司的答案套到另一家。
 - **防止重复**：原子领取避免并发重复。提交前保存意图，只尝试一次；有实际雇主确认才进入 Applied。提交阶段中断或迁移的岗位保留待核查状态，只有用户明确核实未提交后才能重新入队。
 - **私人数据**：`data/lean/application-state.json` 包含答案、问题、草稿和确认记录，默认文件权限 0600，并已被 Git 忽略。密码和验证码不进入答案库。`review-runtime.json` 的本机端口、PID 和会话 token 不进入迁移备份。页面只监听 127.0.0.1，要求本机会话与同源写入，用户文字按文本显示。
@@ -406,7 +406,18 @@ Linux/Windows 不运行 macOS 安装器；`apply:review` 使用系统浏览器�
 
 在 Codex 桌面应用的 Scheduled 中创建**本地独立任务**，选择当前电脑上的项目，模型选 **gpt-6.1-sol / medium**，粘贴 `modes/continuous-schedule.prompt.md`。建议纽约时间每天 **13:40**，在 13:30 导入之后处理；可按需要增加运行时间，而不是增加岗位配额。电脑需开机、应用运行且可访问项目。该定时配置由应用管理，不能只复制仓库就宣称新电脑已经启用；新电脑应重新创建/验证 Scheduled。现有原生导入仍为 10:20 / 13:30，完全不调用模型。
 
-打开待答窗口：`npm run apply:review`。关自动投递：`npm run apply:disable`，并在 Scheduled 暂停对应任务。查看状态：`npm run apply:status`。用户在窗口确认回答后，当前轮的下一次领取或下次定时运行会优先恢复该岗位；没有额外常驻模型轮询。
+打开待答窗口：`npm run apply:review`。关自动投递：`npm run apply:disable`，并在 Scheduled 暂停对应任务。查看状态：`npm run apply:status`。用户确认回答后，当前轮同步或下次定时运行会优先恢复该岗位。
+
+### QQ 待答与资源回收
+
+在 dsh-omni 控制台为 Career Ops 创建应用级令牌，保存到权限为 `0600` 的 `~/.config/dsh-omni/relay.json`。也支持 `DSH_OMNI_RELAY_TOKEN` 和 `DSH_OMNI_RELAY_URL`。本机默认地址为 `http://127.0.0.1:3100`，远程地址使用 HTTPS。新电脑单独配置令牌和网关地址。令牌文件位于仓库和迁移备份之外。
+
+- `npm run apply:relay:status` 只读验证鉴权。
+- `npm run apply:relay` 同步已有回复和未发送的问题。`npm run apply:relay -- --wait 25` 对一个待答请求长轮询一次，然后检查其余请求并退出。定时投递在开始和结束时同步，已排队的问题由 dsh-omni 依次送达。引用原消息或带 `#短码` 回复。
+- QQ 不可用或问题未获回答时，待答事项保存在本地。关闭待答窗口后，后台最多空闲 30 秒即退出。事项全部处理完后，窗口等待 5 秒自动收起。展开已确认答案时可继续查看，点击「收起窗口并释放内存」即可释放。分页只限制窗口显示，岗位队列完整保留。
+- 浏览器按需打开。投递运行结束后释放自己创建的页面，手动简历附件工具在关闭、异常和中断时回收浏览器上下文。
+
+在私人 profile 的 `screening` 中开启 `exclude_citizen_only`、`exclude_green_card_only` 和 `exclude_security_clearance`，即可跳过有这些明确要求的岗位。必须能取得或维持 security clearance 也包含在内。
 
 ### 换电脑恢复与检查
 

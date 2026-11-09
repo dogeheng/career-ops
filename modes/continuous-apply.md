@@ -10,9 +10,15 @@ There is no discovery, per-run or daily application count limit. `node lean-appl
 
 The existing importer remains local and model-free. Use its queue, and optionally refresh it once if stale. No broad scored search. Recheck the live employer JD and run the existing lean pre-screen. Prefer US full-time new-grad/entry-level roles that match the confirmed profile and real skills. Do not reinterpret internships as full-time experience. Respect allowed countries, current work authorization, future sponsorship, graduation and earliest start. Explicit hard mismatches are skipped with evidence; unknown material eligibility remains pending, never silently passed. Job-source legends do not prove employer sponsorship. A prior user's exception for a single employer is not a blanket exception elsewhere.
 
+Apply the profile's citizenship, permanent-residency and security-clearance exclusions. Clearance includes a mandatory ability to obtain or maintain one. A background check alone, a preference, or an ambiguous alternative is a different requirement. Record explicit JD requirements in `requires_us_citizenship`, `requires_green_card`, `citizenship: US_or_permanent_resident`, or `requires_security_clearance` when relevant. Check current profile rules again before submission.
+
 Tailor one factual 11pt, one-page CV using the existing builder and deterministic checks. Reuse cached JD and base CV patches. Use the host's available authorized browser tool, following its skill and control rules. Reuse a signed-in session when available. Do not keep retrying failed selectors blindly. Each job is independent; employer account creation, authentication and browser-owned challenges depend on actual available permissions and credential access. Never put credentials or verification codes into prompts, files, the answer bank, Git or logs. Verify mailbox identity before reading only the current matching verification message. If secure credentials or user control are required, record the blocker and follow the browser handoff rules; do not route around a handoff by making another browser task.
 
+Start the browser when a screened job needs it. Reuse the active application page, close agent-owned pages after each job, and release any temporary mail page after verification. Save draft artifacts before releasing a blocked page. Finish the browser task at the end of the run according to its tool rules, including on failure when supported. Pages needed for an active human handoff remain under the user's control.
+
 ## Remember answers and continue other applications
+
+Run `node lean-apply.mjs relay-sync` before claiming jobs to collect QQ replies and send any unsent questions. Run it again near the end, with optional `--wait 25` for one bounded long poll. Continue ready jobs if time remains. Each sync exits when it finishes. The dsh-omni server handles its own queue and delivers subsequent questions after the Career Ops run exits.
 
 Before asking a missing fact, query the exact question:
 
@@ -23,16 +29,16 @@ node lean-apply.mjs lookup --job JOB_URL --question 'Exact question text'
 Use confirmed profile facts first; reuse an answer only when its meaning, scope, country/employer and expiry actually match. No fuzzy reuse for legal or immigration questions. For an unknown required answer, save the draft if supported and write a private questions JSON file:
 
 ```json
-{"questions":[{"text":"Exact employer question","context":"Available choices and why a fact is missing"}],"draft":{"job_url":"https://employer.example/jobs/123","resume":"output/example.pdf"}}
+{"questions":[{"text":"Exact employer question","context":"Why a fact is missing","choices":["Yes","No"]}],"draft":{"job_url":"https://employer.example/jobs/123","resume":"output/example.pdf"}}
 ```
 
 ```sh
 node lean-apply.mjs block --job JOB_URL --claim CLAIM_TOKEN --file PRIVATE_QUESTIONS_JSON
 ```
 
-This saves the job and opens the persistent local review window. Continue with `next`; a factual question blocks that job rather than the whole queue. If a native popup cannot open, the pending question is still saved: report the error and link `npm run apply:review`. Browser control/MFA/CAPTCHA handoffs can require ending the browser round, so do not claim other browser work can always continue during a user handoff.
+This saves the job and sends each required question to the dsh-omni QQ relay. `queued` and `sent` are normal pending states. Continue with `next`. Local review is the fallback when delivery is unavailable or settles without an answer. Credentials and verification codes belong in the applicable employer or mailbox flow. Browser control handoffs can end the browser round.
 
-The user can answer and choose reuse scope/expiry in the review window. Answers are saved automatically, and jobs whose questions are all answered become ready and take priority. If the user answers in chat instead, record their actual answer (not a prediction) immediately:
+QQ replies must quote the original message or include its `#短码`. The relay's request ID and answer determine the association. Ordinary confirmed replies are saved for that job. A time-sensitive or handoff reply is returned in `relay_replies`; interpret it before filling the form. Record the confirmed fact with its applicable expiry, or leave the job for manual handling when the reply isn't a fact. The review window allows the user to choose reuse scope/expiry. If the user answers in chat instead, record the actual answer immediately:
 
 ```json
 {"job":"https://employer.example/jobs/123","question":"Exact employer question","value":"User's confirmed answer","scope":"job","expires":null,"source":"Explicit user reply in chat"}

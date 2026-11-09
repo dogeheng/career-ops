@@ -11,6 +11,10 @@ screening:
   graduation_date: null
   available_from: null
   us_citizen: null
+  us_permanent_resident: null
+  exclude_citizen_only: false
+  exclude_green_card_only: false
+  exclude_security_clearance: false
   work_authorization: {US: null, CA: null, SG: null, AU: null}
   future_sponsorship_required: {US: null, CA: null, SG: null, AU: null}
   # Ingestion uses repository metadata; full JD screening happens per selected job.

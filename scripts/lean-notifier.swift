@@ -2,7 +2,7 @@ import AppKit
 import UserNotifications
 import WebKit
 
-final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate, NSWindowDelegate, WKNavigationDelegate {
+final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate, NSWindowDelegate, WKNavigationDelegate, WKScriptMessageHandler {
     var reviewPanel: NSPanel?
     let args = CommandLine.arguments
     let center = UNUserNotificationCenter.current()
@@ -23,14 +23,17 @@ final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterD
     func applicationDidFinishLaunching(_ notification: Notification) {
         center.delegate = self
         if let address = value("--review"), let url = URL(string: address), url.scheme == "http", url.host == "127.0.0.1" {
+            NSApp.setActivationPolicy(.regular)
             let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 760, height: 700),
                 styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
             panel.title = "Career Ops · 待回答问题"
             panel.level = .floating
+            panel.hidesOnDeactivate = false
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             panel.delegate = self
             let config = WKWebViewConfiguration()
             config.websiteDataStore = .nonPersistent()
+            config.userContentController.add(self, name: "careerLifecycle")
             let web = WKWebView(frame: panel.contentView!.bounds, configuration: config)
             web.autoresizingMask = [.width, .height]
             web.navigationDelegate = self
@@ -78,9 +81,31 @@ final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterD
         }
     }
     func windowWillClose(_ notification: Notification) { NSApp.terminate(nil) }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        guard let panel = reviewPanel else { return true }
+        if panel.isMiniaturized { panel.deminiaturize(nil) }
+        panel.makeKeyAndOrderFront(nil)
+        reportReviewWindow()
+        return false
+    }
+    func applicationDidResignActive(_ notification: Notification) { reportReviewWindow() }
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "careerLifecycle", message.body as? String == "release" {
+            (reviewPanel?.contentView as? WKWebView)?.stopLoading()
+            userContentController.removeScriptMessageHandler(forName: "careerLifecycle")
+            reviewPanel?.contentView = nil
+            reviewPanel?.close()
+            NSApp.terminate(nil)
+        }
+    }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        report(["window_visible": reviewPanel?.isVisible ?? false,
-                "always_on_top": reviewPanel?.level == .floating,
+        reportReviewWindow()
+    }
+    func reportReviewWindow() {
+        guard let panel = reviewPanel else { return }
+        report(["window_visible": panel.isVisible,
+                "always_on_top": panel.level == .floating,
+                "app_active": NSApp.isActive,
                 "process_id": ProcessInfo.processInfo.processIdentifier])
     }
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,

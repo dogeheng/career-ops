@@ -7,7 +7,7 @@ import { chromium } from 'playwright';
 import { screenJob } from '../lib/lean-screen.mjs';
 import { JOB_SOURCES, parseSource, deduplicateJobs, countryOf } from '../lib/lean-sources.mjs';
 import { mergeQueue, shortlist } from '../lean-ingest.mjs';
-import { uploadResumeOnce } from '../lean-handoff.mjs';
+import { uploadResumeOnce, withOwnedBrowserContext } from '../lean-handoff.mjs';
 
 const profile = { screening: { countries: ['US', 'CA', 'SG', 'AU', 'GB'], employment_types: ['fulltime'],
   full_time_years: 0, graduation_date: '2026-12-23', available_from: '2027-01-10',
@@ -46,6 +46,24 @@ test('graduation and start-date windows use explicit facts', () => {
 test('citizenship is never inferred from OPT', () => {
   assert.equal(screenJob(job({ citizenship: 'US' }), profile).blockers.length, 0);
   assert.ok(screenJob(job({ citizenship: 'US' }), profile).questions.some(x => x.code === 'citizenship_unknown'));
+});
+test('explicit citizenship, green-card and clearance requirements follow the profile exclusions', () => {
+  const exclusions = { screening: { ...profile.screening, exclude_citizen_only: true, exclude_green_card_only: true, exclude_security_clearance: true } };
+  for (const [text, code] of [
+    ['Candidates must be a U.S. citizen.', 'citizenship'],
+    ['US citizens only.', 'citizenship'],
+    ['Candidates must hold a green card.', 'permanent_residency'],
+    ['Applicants must be U.S. citizens or lawful permanent residents.', 'citizenship_or_permanent_residency'],
+    ['Ability to obtain and maintain a Secret clearance.', 'security_clearance'],
+    ['Security clearance level: Top Secret', 'security_clearance'],
+    ['An active safety clearance is required.', 'security_clearance'],
+  ]) assert.ok(codes(screenJob(job({text}),exclusions)).includes(code), text);
+  for (const text of ['A background check is required.', 'Security clearance is preferred.', 'No security clearance is required.', 'U.S. citizenship is not required.']) {
+    assert.equal(screenJob(job({text}),exclusions).blockers.length, 0, text);
+  }
+  const ambiguous=screenJob(job({text:'Must be a U.S. citizen or have an EAD.'}),exclusions);
+  assert.equal(ambiguous.status,'needs-review');
+  assert.ok(ambiguous.questions.some(q=>q.code==='citizenship_interpretation'));
 });
 test('known out-of-scope countries and internships are filtered', () => {
   assert.ok(codes(screenJob(job({ country: 'IN' }), profile)).includes('country'));
@@ -104,4 +122,16 @@ test('Chromium attaches only one labelled résumé input and never submits', asy
     await page.setContent('<input type="file" name="passport">');
     assert.equal((await uploadResumeOnce(page, pdf)).uploaded, false);
   } finally { await browser.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('owned browser context closes if an application fails before handoff', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext();
+    await assert.rejects(withOwnedBrowserContext(context, async () => {
+      await context.newPage();
+      throw Error('Fixture navigation failed');
+    }), /Fixture navigation failed/);
+    assert.equal(browser.contexts().length, 0);
+  } finally { await browser.close(); }
 });

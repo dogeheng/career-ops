@@ -1,19 +1,25 @@
 const el = (tag, text, parent) => { const e = document.createElement(tag); if (text != null) e.textContent = text; parent?.append(e); return e; };
 const error = document.getElementById('error');
+const drafts = new Map(); let pageIndex = 0, released = false, releaseTimer, refreshing = false, refreshAgain = false;
 async function post(path, body) {
   const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data = await response.json(); if (!response.ok) throw Error(data.error); return data;
 }
 async function refresh() {
+  if (released) return;
+  if (refreshing) { refreshAgain = true; return; } refreshing = true;
   try {
-    const response = await fetch('/api/state'); if (!response.ok) throw Error('会话失效，请重新运行 npm run apply:review');
+    const response = await fetch('/api/state?page='+pageIndex); if (!response.ok) throw Error('会话失效，请重新运行 npm run apply:review');
     const data = await response.json(), pending = data.jobs.filter(j => j.status === 'waiting');
-    document.getElementById('status').textContent = `${data.enabled ? '自动投递已启用' : '自动投递已关闭'} · ${pending.length} 个申请待回答 · ${data.answers.length} 条已确认回答 · 不设置岗位数量上限`;
+    if (released) return;
+    document.getElementById('status').textContent = `${data.enabled ? '自动投递已启用' : '自动投递已关闭'} · ${data.waiting} 个申请待回答 · ${data.total_answers} 条已确认回答 · 不设置岗位数量上限`;
+    if (data.attention) { clearTimeout(releaseTimer); releaseTimer = null; }
+    else if (!releaseTimer && !document.querySelector('details').open) releaseTimer = setTimeout(()=>release(true),5000);
     const list = document.getElementById('questions');
     // Keep partially typed answers when another job updates the inbox.
-    const drafts = new Map([...list.querySelectorAll('form')].map(f => [f.dataset.id, { value: f.querySelector('textarea').value, scope: f.querySelector('select').value, expires: f.querySelector('input[type=date]').value }]));
+    for (const f of list.querySelectorAll('form')) drafts.set(f.dataset.id, { value:f.querySelector('textarea').value,scope:f.querySelector('select').value,expires:f.querySelector('input[type=date]').value });
     list.replaceChildren();
-    if (!pending.length) el('p', '当前没有待回答问题。这个窗口可以保持打开，有新问题时会自动更新。', list);
+    if (!pending.length) el('p', data.waiting ? '本页没有待答问题，请查看其他页。' : '当前没有待回答问题。没有待核查事项时，窗口将自动收起并释放后台。', list);
     for (const j of pending) {
       const card = el('article', null, list); el('h2', `${j.company} · ${j.title}`, card);
       el('p', j.url, card).className = 'muted';
@@ -27,10 +33,16 @@ async function refresh() {
         const d = drafts.get(f.dataset.id); if (d) { answer.value=d.value;scope.value=d.scope;expires.value=d.expires; }
         const button = el('button', '确认并记住，等待继续', f); button.type = 'submit';
         f.addEventListener('submit', async e => { e.preventDefault(); error.textContent=''; button.disabled=true;
-          try { await post('/api/answer',{job:j.key,question:q.text,value:answer.value,scope:scope.value,expires:expires.value});await refresh(); }
+          try { await post('/api/answer',{job:j.key,question:q.text,value:answer.value,scope:scope.value,expires:expires.value});drafts.delete(f.dataset.id);await refresh(); }
           catch(e){error.textContent=e.message;button.disabled=false;}
         });
       }
+    }
+    const pages=document.getElementById('pages');pages.replaceChildren();
+    if(data.total_jobs>data.page_size){
+      el('p',`第 ${pageIndex+1} 页 · 共 ${data.total_jobs} 个记录（分页只控制显示，不限制投递）`,pages);
+      const prev=el('button','上一页',pages);prev.disabled=pageIndex===0;prev.onclick=()=>{pageIndex--;refresh();};
+      const next=el('button','下一页',pages);next.disabled=(pageIndex+1)*data.page_size>=data.total_jobs;next.onclick=()=>{pageIndex++;refresh();};
     }
     const progress=document.getElementById('progress');progress.replaceChildren();
     for(const j of data.jobs.filter(j=>['working','submitting','uncertain','ready'].includes(j.status))){
@@ -43,7 +55,17 @@ async function refresh() {
     }
     const saved=document.getElementById('answers');saved.replaceChildren();
     for(const a of [...data.answers].reverse()){const p=el('article',null,saved);el('strong',a.question,p);el('p',a.value,p);el('small',`${a.scope} · ${a.target}${a.expires?' · 有效至 '+a.expires:''}`,p);}
-  } catch(e){error.textContent=e.message;}
+  } catch(e){if(!released)error.textContent=e.message;}
+  finally { refreshing=false;if(refreshAgain){refreshAgain=false;refresh();} }
 }
-const events=new EventSource('/events');events.onmessage=()=>refresh();events.onerror=()=>{error.textContent='连接暂时中断，正在重连。已确认的回答保存在本机。';};
+async function release(automatic=false){
+  if(released)return;
+  if(automatic){try{const data=await (await fetch('/api/state')).json();if(data.attention||document.querySelector('details').open){releaseTimer=null;return;}}catch{return;}}
+  released=true;clearTimeout(releaseTimer);events.close();drafts.clear();
+  try{await post('/api/release',{});}catch{/* The server may already be idle-closed. */}
+  document.body.replaceChildren();el('h1','窗口已收起',document.body);el('p','后台服务将自动退出。问题和已确认答案均已保存，需要时运行 npm run apply:review。',document.body);
+  if(window.webkit?.messageHandlers?.careerLifecycle)window.webkit.messageHandlers.careerLifecycle.postMessage('release');else window.close();
+}
+document.getElementById('release').onclick=()=>release(false);
+const events=new EventSource('/events');events.onmessage=()=>refresh();events.onerror=()=>{if(!released)error.textContent='连接暂时中断，正在重连。已确认的回答保存在本机。';};
 refresh();

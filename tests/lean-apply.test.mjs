@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
@@ -130,4 +130,58 @@ test('automatic questions reuse one window; explicit reopen works after a browse
   const {origin,token}=instance.runtime,options={method:'POST',headers:{Authorization:'Bearer '+token}};
   await fetch(origin+'/internal/open',options);await fetch(origin+'/internal/open',options);assert.equal(launches,1);
   await fetch(origin+'/internal/open?force=1',options);assert.equal(launches,2);
+});
+
+test('a native review window keeps its service when the web view disconnects', { timeout: 5000 }, async t => {
+  const root = fixture(t);
+  const child = new EventEmitter();
+  child.unref = () => {};
+  let launches = 0;
+  const instance = await startReviewServer(root, {
+    idleMs: 50,
+    launch: () => {
+      launches++;
+      return { child, native: true };
+    },
+  });
+  t.after(() => instance.close());
+  const { origin, token } = instance.runtime;
+  const open = { method: 'POST', headers: { Authorization: 'Bearer ' + token } };
+  await fetch(origin + '/internal/open', open);
+  const events = await fetch(origin + '/events', { headers: { Cookie: 'career_review=' + token } });
+  assert.equal(events.status, 200);
+  await events.body.cancel();
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.equal((await fetch(origin + '/health')).status, 200);
+  await fetch(origin + '/internal/open', open);
+  assert.equal(launches, 1);
+
+  const stopped = new Promise(resolve => instance.server.once('close', resolve));
+  child.emit('exit');
+  await stopped;
+  assert.equal(instance.server.listening, false);
+});
+
+test('closing the last review tab stops the server while pending answers stay on disk', { timeout: 5000 }, async t => {
+  const root = fixture(t); await enable(root);
+  const job = (await claimNext(root)).job;
+  await setJob(root, job.key, job.claim, 'waiting', { questions: [{text:'Can you travel?'}] });
+  const instance = await startReviewServer(root, { idleMs: 150 });
+  t.after(() => instance.close());
+  const {origin, token} = instance.runtime;
+  const response = await fetch(origin+'/events', {headers:{Cookie:'career_review='+token}});
+  assert.equal(response.status,200);
+  const stopped = new Promise(resolve=>instance.server.once('close',resolve));
+  await response.body.cancel(); await stopped;
+  assert.equal(existsSync(join(root,'data/lean/review-runtime.json')),false);
+  assert.equal(readState(root).jobs[job.key].status,'waiting');
+});
+
+test('claiming rechecks newer hard filters against an older queue', async t => {
+  const root=fixture(t,2); await enable(root);
+  const file=join(root,'data/lean/jobs.json'), jobs=JSON.parse(readFileSync(file,'utf8'));
+  jobs[0].requires_security_clearance=true; writeFileSync(file,JSON.stringify(jobs));
+  mkdirSync(join(root,'config'));
+  writeFileSync(join(root,'config/profile.yml'),'screening:\n  exclude_security_clearance: true\n');
+  assert.equal((await claimNext(root)).job.key,jobs[1].key);
 });

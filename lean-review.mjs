@@ -7,10 +7,12 @@ import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { getCareerOpsRoot } from './path-resolver.mjs';
 import { isMainModule } from './lib/is-main-module.mjs';
+import { withPipelineLock } from './pipeline-lock.mjs';
 import { readJson, readState, changeState, rememberAnswer, retryJob } from './lib/lean-apply.mjs';
 
 const code = dirname(fileURLToPath(import.meta.url));
 const runtimePath = root => join(root, 'data/lean/review-runtime.json');
+const REVIEW_PROTOCOL_VERSION = 2;
 export function launchWindow(url, platform = process.platform, launch = spawn, resultPath = null) {
   const app = join(code, 'local/native/CareerOps Notifier.app');
   const native = platform === 'darwin' && existsSync(app);
@@ -18,8 +20,19 @@ export function launchWindow(url, platform = process.platform, launch = spawn, r
     platform === 'darwin' ? ['/usr/bin/open', [url]] : platform === 'win32' ? ['cmd.exe', ['/d', '/c', 'start', '', url]] : ['xdg-open', [url]];
   return { child: launch(exe, args, { stdio: 'ignore' }), native };
 }
-export async function startReviewServer(root = getCareerOpsRoot(), { launch = url => launchWindow(url, process.platform, spawn, join(root, 'data/lean/review-window-runtime.json')) } = {}) {
-  const token = randomBytes(32).toString('hex'), peers = new Set(); let opened = false;
+export async function startReviewServer(root = getCareerOpsRoot(), { launch = url => launchWindow(url, process.platform, spawn, join(root, 'data/lean/review-window-runtime.json')), idleMs = 30000 } = {}) {
+  const token = randomBytes(32).toString('hex'), peers = new Set(), nativeWindows = new Set();
+  let browserOpened = false, idleTimer, watcher, closed = false;
+  function close() {
+    if (closed) return; closed = true; clearTimeout(idleTimer); watcher?.close();
+    for (const peer of peers) peer.end(); peers.clear(); server.closeAllConnections(); server.close();
+    if (readJson(runtimePath(root), {})?.token === token) rmSync(runtimePath(root), { force: true });
+  }
+  function armIdle() {
+    clearTimeout(idleTimer);
+    if (!nativeWindows.size && !peers.size && !closed) idleTimer = setTimeout(close, idleMs);
+  }
+  function busy() { clearTimeout(idleTimer); }
   mkdirSync(join(root, 'data/lean'), { recursive: true });
   let origin;
   const server = http.createServer(async (req, res) => {
@@ -29,12 +42,23 @@ export async function startReviewServer(root = getCareerOpsRoot(), { launch = ur
       const url = new URL(req.url, origin);
       res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer');
       res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; form-action 'self'");
-      if (req.method === 'GET' && url.pathname === '/health') return send(200, { service: 'career-ops-review' });
+      if (req.method === 'GET' && url.pathname === '/health') return send(200, { service: 'career-ops-review', version: REVIEW_PROTOCOL_VERSION });
       if (req.method === 'POST' && url.pathname === '/internal/open' && req.headers.authorization === `Bearer ${token}`) {
-        if (!opened || url.searchParams.get('force') === '1') {
-          const { child, native } = launch(`${origin}/launch/${token}`); opened = true;
-          child.once('error', () => { opened = false; }); if (native) child.once('exit', () => { opened = false; }); child.unref();
+        busy();
+        if ((!browserOpened && !nativeWindows.size && !peers.size) || url.searchParams.get('force') === '1') {
+          const { child, native } = launch(`${origin}/launch/${token}`);
+          if (native) nativeWindows.add(child);
+          else browserOpened = true;
+          const ended = () => {
+            if (native) nativeWindows.delete(child);
+            else browserOpened = false;
+            armIdle();
+          };
+          child.once('error', ended);
+          child.once('exit', ended);
+          child.unref();
         }
+        armIdle();
         return send(200, { opened: true });
       }
       if (req.method === 'GET' && url.pathname === `/launch/${token}`) {
@@ -42,11 +66,20 @@ export async function startReviewServer(root = getCareerOpsRoot(), { launch = ur
       }
       if (!req.headers.cookie?.split(';').some(c => c.trim() === `career_review=${token}`)) return send(403, { error: 'Open with node lean-review.mjs --open' });
       if (req.method === 'GET' && url.pathname === '/events') {
-        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' }); res.write('data: changed\n\n'); peers.add(res); req.on('close', () => peers.delete(res)); return;
+        busy(); res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' }); res.write('data: changed\n\n'); peers.add(res);
+        req.on('close', () => {
+          peers.delete(res);
+          if (!peers.size) { browserOpened = false; armIdle(); }
+        }); return;
       }
       if (req.method === 'GET' && url.pathname === '/api/state') {
-        const s = readState(root); return send(200, { enabled: s.enabled, answers: s.answers,
-          jobs: Object.values(s.jobs).filter(j => ['waiting', 'working', 'submitting', 'uncertain', 'ready'].includes(j.status)).map(({ claim, ...j }) => j) });
+        const s = readState(root), all = Object.values(s.jobs).filter(j => ['waiting', 'working', 'submitting', 'uncertain', 'ready'].includes(j.status));
+        const rank = { waiting: 0, uncertain: 1, submitting: 2, working: 3, ready: 4 }; all.sort((a,b) => rank[a.status]-rank[b.status]);
+        const page = Math.max(0, Math.floor(Number(url.searchParams.get('page')) || 0)), size = 20;
+        return send(200, { enabled: s.enabled, answers: s.answers.slice(-size), total_answers: s.answers.length,
+          waiting: all.filter(j=>j.status==='waiting').length, attention: all.filter(j=>['waiting','uncertain'].includes(j.status)).length,
+          total_jobs: all.length, page, page_size: size, server_rss_bytes: process.memoryUsage().rss,
+          jobs: all.slice(page*size,(page+1)*size).map(({ claim, ...j }) => j) });
       }
       if (req.method === 'GET' && ['/', '/review.js'].includes(url.pathname)) {
         res.writeHead(200, { 'Content-Type': url.pathname === '/' ? 'text/html; charset=utf-8' : 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -55,6 +88,7 @@ export async function startReviewServer(root = getCareerOpsRoot(), { launch = ur
       if (req.method !== 'POST' || req.headers.origin !== origin || !req.headers['content-type']?.startsWith('application/json')) return send(403, { error: 'Same-origin JSON required' });
       let body = ''; for await (const chunk of req) { body += chunk; if (Buffer.byteLength(body) > 32768) return send(413, { error: 'Answer too large' }); }
       const p = JSON.parse(body);
+      if (url.pathname === '/api/release') { browserOpened = false; send(200, { released: true }); armIdle(); return; }
       if (url.pathname === '/api/answer') {
         const answer = await changeState(root, s => {
           const job = s.jobs[p.job], question = job?.questions?.find(q => q.text === p.question);
@@ -70,14 +104,23 @@ export async function startReviewServer(root = getCareerOpsRoot(), { launch = ur
   origin = `http://127.0.0.1:${server.address().port}`;
   const runtime = { origin, token, pid: process.pid };
   writeFileSync(runtimePath(root), JSON.stringify(runtime), { mode: 0o600 });
-  const watcher = watch(join(root, 'data/lean'), (_event, name) => { if (String(name) === 'application-state.json') for (const peer of peers) peer.write('data: changed\n\n'); });
-  return { server, runtime, close: () => { watcher.close(); for (const peer of peers) peer.end(); server.closeAllConnections(); server.close();
-    if (readJson(runtimePath(root), {})?.token === token) rmSync(runtimePath(root), { force: true }); } };
+  watcher = watch(join(root, 'data/lean'), (_event, name) => { if (String(name) === 'application-state.json') for (const peer of peers) peer.write('data: changed\n\n'); });
+  armIdle();
+  return { server, runtime, close };
 }
 export async function openReview(root = getCareerOpsRoot(), { force = false } = {}) {
+  return withPipelineLock(runtimePath(root), () => openReviewWindow(root, force));
+}
+
+async function openReviewWindow(root, force) {
   let runtime = readJson(runtimePath(root), null);
   try { const u = new URL(runtime?.origin); if (u.protocol !== 'http:' || u.hostname !== '127.0.0.1' || !u.port || !/^[a-f0-9]{64}$/.test(runtime.token)) runtime = null; } catch { runtime = null; }
-  try { if (!runtime || (await (await fetch(runtime.origin + '/health', { signal: AbortSignal.timeout(1000) })).json()).service !== 'career-ops-review') runtime = null; } catch { runtime = null; }
+  try {
+    if (runtime) {
+      const health = await (await fetch(runtime.origin + '/health', { signal: AbortSignal.timeout(1000) })).json();
+      if (health.service !== 'career-ops-review' || health.version !== REVIEW_PROTOCOL_VERSION) runtime = null;
+    }
+  } catch { runtime = null; }
   if (!runtime) {
     runtime = await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [fileURLToPath(import.meta.url), '--serve'], { detached: true, env: { ...process.env, CAREER_OPS_ROOT: root }, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });

@@ -32,6 +32,12 @@ export async function uploadResumeOnce(page, pdf) {
     return { attempted: true, uploaded: true, filenames: names, submitted: false };
   } catch (e) { return { attempted: true, uploaded: false, reason: 'upload-outcome-unknown', submitted: false }; }
 }
+export async function withOwnedBrowserContext(context, run) {
+  const stop = () => { void context.close(); };
+  process.once('SIGINT', stop); process.once('SIGTERM', stop);
+  try { return await run(); }
+  finally { process.removeListener('SIGINT', stop); process.removeListener('SIGTERM', stop); await context.close(); }
+}
 async function main(args) {
   if (args.includes('--help')) { console.log('node lean-handoff.mjs --url https://employer/job --resume /absolute/cv.pdf [--upload]\nHuman signs in; --upload authorizes one resume attachment to this destination. No typing, clicking or submission. Browser sessions stay local.'); return; }
   const opt = {};
@@ -48,32 +54,35 @@ async function main(args) {
   if (!existsSync(pdf) || readFileSync(pdf).subarray(0, 5).toString() !== '%PDF-') throw new Error('A valid local PDF is required');
   const profile = join(root, 'data', 'lean', 'chromium'); mkdirSync(profile, { recursive: true, mode: 0o700 });
   const context = await chromium.launchPersistentContext(profile, browserLaunchOptions({ headless: false, viewport: null }));
-  const page = context.pages()[0] || await context.newPage();
-  await page.goto(url.href, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-  console.log(`Sign in manually, then open the Resume/CV step. PDF: ${pdf}`);
-  console.log('You finish questions and click Submit. Close Chromium when done.');
-  if (opt.upload) {
-    const end = Date.now() + 10 * 60_000;
-    let busy = false;
-    const timer = setInterval(async () => {
-      if (busy) return;
-      if (Date.now() > end) { clearInterval(timer); console.log('Upload watch ended; attach the PDF manually.'); return; }
-      busy = true;
-      try {
-        const pages = context.pages();
-        // Only same employer host; a different ATS/SSO host requires a new explicit destination.
-        const target = pages.at(-1);
-        if (target && new URL(target.url()).hostname === url.hostname) {
-          const result = await uploadResumeOnce(target, pdf);
-          if (result.uploaded) { clearInterval(timer); console.log(JSON.stringify(result)); console.log('PDF attached. Verify the upload in the page; finish and submit manually.'); }
-          else if (result.attempted) { clearInterval(timer); console.log('Upload outcome uncertain. Check the page before retrying manually.'); }
-          else if (result.reason === 'ambiguous-resume-inputs') { clearInterval(timer); console.log('Several résumé inputs found; attach manually using the PDF path above.'); }
-        }
-      } catch (e) { /* Navigation/detachment is expected during human login. */ }
-      finally { busy = false; }
-    }, 3000);
-    context.on('close', () => clearInterval(timer));
-  }
-  await new Promise(done => context.on('close', done));
+  const closed = new Promise(done => context.once('close', done));
+  await withOwnedBrowserContext(context, async () => {
+    const page = context.pages()[0] || await context.newPage();
+    await page.goto(url.href, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    console.log(`Sign in manually, then open the Resume/CV step. PDF: ${pdf}`);
+    console.log('You finish questions and click Submit. Close Chromium when done.');
+    if (opt.upload) {
+      const end = Date.now() + 10 * 60_000;
+      let busy = false;
+      const timer = setInterval(async () => {
+        if (busy) return;
+        if (Date.now() > end) { clearInterval(timer); console.log('Upload watch ended; attach the PDF manually.'); return; }
+        busy = true;
+        try {
+          const pages = context.pages();
+          // Only same employer host; a different ATS/SSO host requires a new explicit destination.
+          const target = pages.at(-1);
+          if (target && new URL(target.url()).hostname === url.hostname) {
+            const result = await uploadResumeOnce(target, pdf);
+            if (result.uploaded) { clearInterval(timer); console.log(JSON.stringify(result)); console.log('PDF attached. Verify the upload in the page; finish and submit manually.'); }
+            else if (result.attempted) { clearInterval(timer); console.log('Upload outcome uncertain. Check the page before retrying manually.'); }
+            else if (result.reason === 'ambiguous-resume-inputs') { clearInterval(timer); console.log('Several résumé inputs found; attach manually using the PDF path above.'); }
+          }
+        } catch (e) { /* Navigation/detachment is expected during human login. */ }
+        finally { busy = false; }
+      }, 3000);
+      context.on('close', () => clearInterval(timer));
+    }
+    await closed;
+  });
 }
 if (isMainModule(import.meta.url)) main(process.argv.slice(2)).catch(e => { console.error(e.message); process.exitCode = 1; });
