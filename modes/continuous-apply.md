@@ -28,7 +28,7 @@ Before asking a missing fact, query the exact question:
 node lean-apply.mjs lookup --job JOB_URL --question 'Exact question text'
 ```
 
-Use confirmed profile facts first; reuse an answer only when its meaning, scope, country/employer and expiry actually match. No fuzzy reuse for legal or immigration questions. For an unknown required answer, save the draft if supported and write a private questions JSON file:
+Use confirmed profile facts first. Check saved answers before opening a new question, including approved wording variants. Confirm the scope, expiry and actual form choices before filling. `lookup` can reuse unambiguous QQ facts on the curated list in `lib/lean-question-keys.mjs`. Preserve the distinction between a citizenship country, permanent-residency history and export eligibility. For an unknown required answer, save the draft if supported and write a private questions JSON file:
 
 ```json
 {"questions":[{"text":"Exact employer question","context":"Why a fact is missing","choices":["Yes","No"]}],"draft":{"job_url":"https://employer.example/jobs/123","resume":"output/example.pdf"}}
@@ -40,7 +40,7 @@ node lean-apply.mjs block --job JOB_URL --claim CLAIM_TOKEN --file PRIVATE_QUEST
 
 This saves the job and sends each required question to the dsh-omni QQ relay. `queued` and `sent` are normal pending states. Continue with `next`. Local review is the fallback when delivery is unavailable or settles without an answer. Credentials and verification codes belong in the applicable employer or mailbox flow. Browser control handoffs can end the browser round.
 
-QQ replies must quote the original message or include its `#短码`. The relay's request ID and answer determine the association. Ordinary confirmed replies are saved for that job. A time-sensitive or handoff reply is returned in `relay_replies`; interpret it before filling the form. Record the confirmed fact with its applicable expiry, or leave the job for manual handling when the reply isn't a fact. The review window allows the user to choose reuse scope/expiry. If the user answers in chat instead, record the actual answer immediately:
+QQ replies must quote the original message or include its `#短码`. The relay's request ID links each answer to its source job. Verified equivalents of selected facts share one pending QQ request and reuse its confirmed answer within the applicable scope. Other questions use their saved scope, which defaults to the original job. A time-sensitive or handoff reply is returned in `relay_replies`. Interpret it before filling the form and record the confirmed fact with its expiry. The review window allows the user to choose reuse scope and expiry. If the user answers in chat instead, record the actual answer immediately:
 
 ```json
 {"job":"https://employer.example/jobs/123","question":"Exact employer question","value":"User's confirmed answer","scope":"job","expires":null,"source":"Explicit user reply in chat"}

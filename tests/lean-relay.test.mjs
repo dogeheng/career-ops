@@ -88,6 +88,28 @@ test('a superseded QQ request is cancelled when the user answers locally', async
   assert.equal(readState(root).jobs[key].questions[0].relay.status, 'cancelled');
 });
 
+test('two jobs can share one pending QQ question and resume from its verified reply', async t => {
+  const { root, key } = await waiting(t, [{ text: 'In which country/region do you have citizenship?' }]);
+  const other = 'https://jobs.example/2';
+  await changeState(root, state => {
+    state.jobs[other] = { key: other, status: 'waiting', company: 'Other', questions: [{ text: 'What is your country of citizenship?' }] };
+  });
+  let asks = 0;
+  const client = {
+    ask: async () => { asks++; return { id: 'r_fixture', status: 'sent' }; },
+    poll: async () => ({ id: 'r_fixture', status: 'answered', answer: { text: 'Canada', via: 'quote' } }),
+  };
+  const first = await syncRelay(root, { client });
+  assert.deepEqual(first.counts, { sent: 1, covered: 1 });
+  assert.equal(first.fallback, false);
+  await syncRelay(root, { client, pollIntervalMs: 0 });
+  const state = readState(root);
+  assert.equal(asks, 1);
+  assert.equal(state.jobs[key].status, 'ready');
+  assert.equal(state.jobs[other].status, 'ready');
+  assert.equal(state.answers.length, 1);
+});
+
 test('ambiguous delivery is held, and offer replies retain provenance for expiry review', async t => {
   const { root, key } = await waiting(t, [{ text: 'Can you travel?' }, { text: 'Other offer deadline?' }, { text: 'Email verification code?' }]);
   let asks = 0;

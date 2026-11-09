@@ -53,6 +53,7 @@ export async function command(args, root = getCareerOpsRoot()) {
   if (action === 'block') {
     const p = payload();
     const job = await setJob(root, flags.job, flags.claim, 'waiting', { questions: p.questions, draft: p.draft || null });
+    if (job.status === 'ready') return { job: job.key, relay: { status: 'reused' }, next: 'Confirmed answers available; reclaim the job' };
     const relay = await deliverQuestions(root, { jobKey: job.key }, true);
     return { job: job.key, relay, next: 'Question saved; continue with next job' };
   }

@@ -55,6 +55,29 @@ test('specific answers outrank general ones; expired offer facts are not reused'
   assert.equal(lookupAnswer(s,job,'Offer deadline?','2026-12-01T06:00:00Z'),null);
 });
 
+test('approved QQ facts reuse wording variants without treating citizenship as export eligibility', () => {
+  const first = { key: 'https://jobs.example/first', company: 'Acme', country: 'US' };
+  const other = { key: 'https://jobs.example/other', company: 'Other', country: 'CA' };
+  const state = { answers: [], jobs: { [first.key]: first, [other.key]: other } };
+  rememberAnswer(state, { job: first, question: 'In which country/region do you have citizenship?', value: 'Canada', confirmed: true, source: 'QQ relay quote (r_first)' });
+  const match = lookupAnswer(state, other, 'What is your country of citizenship? *');
+  assert.equal(match.value, 'Canada');
+  assert.equal(match.original_job, first.key);
+  assert.equal(lookupAnswer(state, other, 'Do you satisfy US export-control eligibility?'), null);
+  rememberAnswer(state, { job: other, question: 'Country/region of citizenship', value: 'Ireland', confirmed: true, source: 'QQ relay code (r_other)' });
+  assert.equal(lookupAnswer(state, { key: 'https://jobs.example/third' }, 'What is your country of citizenship?'), null);
+});
+
+test('equivalent sponsorship questions stay within the saved country and time frame', () => {
+  const first = { key: 'https://jobs.example/first', company: 'Acme', country: 'US' };
+  const state = { answers: [], jobs: { [first.key]: first } };
+  rememberAnswer(state, { job: first, question: 'Will you now or in the future require visa sponsorship?', value: 'Yes', confirmed: true, source: 'QQ relay quote (r_first)' });
+  const other = { key: 'https://jobs.example/other', company: 'Other', country: 'US' };
+  assert.equal(lookupAnswer(state, other, 'Do you require visa sponsorship now or in the future?').value, 'Yes');
+  assert.equal(lookupAnswer(state, { ...other, country: 'CA' }, 'Do you require visa sponsorship now or in the future?'), null);
+  assert.equal(lookupAnswer(state, other, 'Do you require visa sponsorship today?'), null);
+});
+
 test('submission intent, matching evidence and held ambiguous outcomes prevent duplicates', async t => {
   const root=fixture(t);await enable(root);const j=(await claimNext(root)).job;
   const evidence={kind:'confirmation_page',job_url:j.url,confirmation_url:'https://jobs.example/confirmation',text:'Application received'};
