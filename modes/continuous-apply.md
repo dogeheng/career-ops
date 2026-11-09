@@ -14,7 +14,9 @@ Apply the profile's citizenship, permanent-residency and security-clearance excl
 
 Tailor one factual 11pt, one-page CV using the existing builder and deterministic checks. Reuse cached JD and base CV patches. Use the host's available authorized browser tool, following its skill and control rules. Reuse a signed-in session when available. Do not keep retrying failed selectors blindly. Each job is independent; employer account creation, authentication and browser-owned challenges depend on actual available permissions and credential access. Never put credentials or verification codes into prompts, files, the answer bank, Git or logs. Verify mailbox identity before reading only the current matching verification message. If secure credentials or user control are required, record the blocker and follow the browser handoff rules; do not route around a handoff by making another browser task.
 
-Start the browser when a screened job needs it. Reuse the active application page, close agent-owned pages after each job, and release any temporary mail page after verification. Save draft artifacts before releasing a blocked page. Finish the browser task at the end of the run according to its tool rules, including on failure when supported. Pages needed for an active human handoff remain under the user's control.
+Start the browser when a screened job needs it. Reuse the active application page, close agent-owned pages after each job, and release any temporary mail page after verification. Save draft artifacts before releasing a blocked page. Use DOM snapshots and text readback throughout unattended runs. Keep pixel screenshots, video, screenshot tracing, and raw CDP capture out of that path. On macOS, a stalled ego lite capture can leave a `Capturing` display-sleep assertion held ([ego lite issue #482](https://github.com/citrolabs/ego-lite/issues/482)).
+
+Finish a successful ego-browser task with `task.finish({ keep: [] })`. Follow the browser tool's error and handoff rules for unfinished work. After an ego-browser run on macOS, check `pmset -g assertions` for any remaining ego lite `Capturing` assertion. If one remains, preserve drafts and bring the existing window into view or quit ego lite normally when no user task needs it. Pages needed for an active human handoff remain under the user's control.
 
 ## Remember answers and continue other applications
 
@@ -52,7 +54,7 @@ Default scope is one job. Broader employer/country/global reuse requires the use
 
 ## Submit once and record evidence
 
-When all mandatory facts are confirmed, the CV is correct and submission is within the user's explicit recurring authorization, do not require an extra review simply because the default mode is manual. Capture the final form, then run:
+When all mandatory facts are confirmed, the CV is correct and submission is within the user's explicit recurring authorization, do not require an extra review simply because the default mode is manual. Read back the final form fields as text, then run:
 
 ```sh
 node lean-apply.mjs submit-intent --job JOB_URL --claim CLAIM_TOKEN
@@ -68,6 +70,6 @@ Click Submit exactly once. A timeout is NOT permission to click again. Verify an
 node lean-apply.mjs result --job JOB_URL --claim CLAIM_TOKEN --status submitted --file PRIVATE_EVIDENCE_JSON
 ```
 
-Only then add Applied via the existing reserve-report-num / headed tracker-additions TSV / merge-tracker writer (score N/A, no invented report). Refresh the local queue without a network refresh. Save screenshot/evidence links relative to the private data root. An upload alone is not a submission. If confirmation is ambiguous, use `result --status uncertain` and continue other jobs; never auto-retry. Interrupted `working` or `submitting` jobs stay held across runs and are visible in the review window. The user's explicit “verified not submitted” action is required to return them to the queue.
+Only then add Applied via the existing reserve-report-num / headed tracker-additions TSV / merge-tracker writer (score N/A, no invented report). Refresh the local queue without a network refresh. Save the confirmation text, URL and application ID when available, with evidence links relative to the private data root. An upload alone is not a submission. If confirmation is ambiguous, use `result --status uncertain` and continue other jobs; never auto-retry. Interrupted `working` or `submitting` jobs stay held across runs and are visible in the review window. The user's explicit “verified not submitted” action is required to return them to the queue.
 
 End with a concise Chinese report of confirmed submissions, hard mismatches, pending questions, uncertain outcomes and remaining work. Report actual counts; no target quota and no claim that every ATS will work unattended.

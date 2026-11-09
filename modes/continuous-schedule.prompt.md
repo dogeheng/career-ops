@@ -7,3 +7,5 @@
 提交前记录 submit-intent，只点击一次 Submit；有雇主确认才记 submitted，并通过 canonical tracker writer 标记 Applied。超时或断线标记 uncertain，交给待答窗口核查。不要自动重试。每次结束用中文报告实际提交数量及公司/岗位、待答问题、结果不明项和剩余工作；不要把上传算作投递，不要宣称没有实测的 ATS 均可自动完成。
 
 手动事实问题走 dsh-omni QQ 中继。按持续投递流程在领取岗位前及本轮结束前同步回复，排队的提问交给中继投递，窗口仅用于本机待答回退。每个岗位结束后释放该次申请使用的浏览器页面。
+
+无人值守时用页面结构和文字核验，保存确认文本、链接和申请编号。跳过截图、录屏和 CDP 画面采集。ego-browser 成功收尾时调用 task.finish({ keep: [] })。macOS 上检查 pmset -g assertions，若仍有 ego lite 的 Capturing 断言，按持续投递流程释放。
