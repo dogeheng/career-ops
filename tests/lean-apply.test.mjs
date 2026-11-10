@@ -78,6 +78,32 @@ test('equivalent sponsorship questions stay within the saved country and time fr
   assert.equal(lookupAnswer(state, other, 'Do you require visa sponsorship today?'), null);
 });
 
+test('confirmed defaults persist across employers while application and internship history take precedence', async t => {
+  const root = fixture(t, 3);
+  const [first, second, third] = JSON.parse(readFileSync(join(root, 'data/lean/jobs.json'), 'utf8'));
+  const file = join(root, 'confirmed-defaults.json');
+  writeFileSync(file, JSON.stringify({ relocation: true, prior_application: false, prior_employment: false, current_employment: false, relatives: false, military_service: false }));
+  await assert.rejects(command(['defaults','--file',file],root), /Explicit user confirmation/);
+  await command(['defaults','--file',file,'--confirmed-by-user'],root);
+  writeFileSync(join(root,'data/applications.md'), '| # | Date | Company | Role | Score | Status | PDF | Report | Notes | URL |\n|---|---|---|---|---|---|---|---|---|---|\n| 1 | 2026-11-09 | Company 0 | Engineer | N/A | Applied | ✅ | — | Employer confirmed | [job](https://jobs.example/old) |\n| 2 | 2026-11-09 | Company 2 | Engineer | N/A | Draft | ✅ | — | Draft | [job](https://jobs.example/draft) |\n');
+  writeFileSync(join(root,'cv.md'),'## Work Experience\n\n### Company 1 — New York\n\n**Engineering Intern**\nJun 2026 - Aug 2026\n');
+  const state = readState(root);
+  for (const job of [first, second, third]) {
+    assert.equal(lookupAnswer(state,job,'Are you open to relocation?').value,'Yes');
+    assert.equal(lookupAnswer(state,job,'Veteran status').value,'No');
+    assert.equal(lookupAnswer(state,job,'Do you have any relatives at this company?').value,'No');
+    assert.equal(lookupAnswer(state,job,'Do you require relocation assistance?'),null);
+  }
+  await changeState(root,s=>rememberAnswer(s,{job:first,question:'Have you previously applied to Company 0?',value:'No',confirmed:true}));
+  const updated = readState(root);
+  assert.equal(lookupAnswer(updated,first,'Have you previously applied to Company 0?').value,'Yes');
+  assert.equal(lookupAnswer(updated,second,'Have you previously applied to Company 0 or any Company 0 subsidiary?').value,'Yes');
+  assert.equal(lookupAnswer(updated,third,'Have you ever applied to this company?').value,'No');
+  assert.equal(lookupAnswer(updated,second,'Have you been employed by Company 1 in the past?').value,'Yes');
+  assert.equal(lookupAnswer(updated,second,'Are you currently a Company 1 employee?').value,'No');
+  assert.equal(lookupAnswer(updated,third,'Have you previously worked for us?').value,'No');
+});
+
 test('submission intent, matching evidence and held ambiguous outcomes prevent duplicates', async t => {
   const root=fixture(t);await enable(root);const j=(await claimNext(root)).job;
   const evidence={kind:'confirmation_page',job_url:j.url,confirmation_url:'https://jobs.example/confirmation',text:'Application received'};

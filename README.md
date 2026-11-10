@@ -415,6 +415,7 @@ Linux/Windows 不运行 macOS 安装器；`apply:review` 使用系统浏览器�
 - `npm run apply:relay:status` 只读验证鉴权。
 - `npm run apply:relay` 同步已有回复和未发送的问题。`npm run apply:relay -- --wait 25` 对一个待答请求长轮询一次，然后检查其余请求并退出。定时投递在开始和结束时同步，已排队的问题由 dsh-omni 依次送达。引用原消息或带 `#短码` 回复。
 - 已确认的事实按题目含义和适用范围复用。列入规则的等价问法共用一条 QQ 提问，原始回复和岗位来源保留在本地。填写前核对表单选项和时效，存在冲突时保留待确认。
+- 用户明确确认后，可用 `node lean-apply.mjs defaults --file PRIVATE_JSON --confirmed-by-user` 长期保存搬迁、历史申请、任职、亲属和服役的表单默认答案。JSON 的可选布尔字段为 `relocation`、`prior_application`、`prior_employment`、`current_employment`、`relatives` 和 `military_service`。实际已投和 CV 任职记录优先。使用 `npm run apply:relay -- --existing-only` 收取旧回复并撤销已有答案的旧请求。
 - QQ 不可用或问题未获回答时，待答事项保存在本地。关闭待答窗口后，后台最多空闲 30 秒即退出。事项全部处理完后，窗口等待 5 秒自动收起。展开已确认答案时可继续查看，点击「收起窗口并释放内存」即可释放。分页只限制窗口显示，岗位队列完整保留。
 - 浏览器按需打开。投递运行结束后释放自己创建的页面，手动简历附件工具在关闭、异常和中断时回收浏览器上下文。
 - 无人值守投递使用页面文字和申请编号作确认依据。macOS 上 ego lite 的后台截图卡住时可能持续阻止屏幕休眠，所以定时流程避开画面采集，并在浏览器收尾后检查 `pmset -g assertions`。 [ego lite 问题 #482](https://github.com/citrolabs/ego-lite/issues/482)

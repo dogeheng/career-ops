@@ -110,6 +110,38 @@ test('two jobs can share one pending QQ question and resume from its verified re
   assert.equal(state.answers.length, 1);
 });
 
+test('existing-only sync retires a resolved default and collects old replies without new asks', async t => {
+  const { root, key } = await waiting(t, [
+    { text: 'Are you open to relocation?', relay: { id:'r_move',status:'queued' } },
+    { text: 'Can you travel?', relay: { id:'r_travel',status:'sent' } },
+    { text: 'Preferred start date?' },
+  ]);
+  await changeState(root,state=>{state.form_defaults={relocation:true};});
+  const cancelled = [];
+  const client = {
+    cancel: async id => { cancelled.push(id); return {status:'cancelled'}; },
+    poll: async id => ({id,status:'answered',answer:{text:'Yes',via:'quote'}}),
+    ask: async () => { throw Error('Unexpected new question'); },
+  };
+  const result = await syncRelay(root,{client,existingOnly:true});
+  assert.equal(result.retired,1);
+  assert.equal(result.counts.answered,1);
+  assert.equal(result.fallback,false);
+  assert.deepEqual(cancelled,['r_move']);
+  assert.equal(readState(root).jobs[key].questions[2].relay,undefined);
+});
+
+test('a terminal cancel acknowledgement without a body is checked by request ID', async () => {
+  const paths = [];
+  const client = makeRelayClient({ base:'http://127.0.0.1:3100', token:'relay_fixture' }, async (url, options) => {
+    paths.push([options.method, new URL(url).pathname]);
+    const data = options.method === 'POST' ? {ok:true} : {ok:true,id:'r_previous',status:'answered',answer:{text:'No',via:'quote'}};
+    return Response.json(data);
+  });
+  assert.equal((await client.cancel('r_previous')).status,'answered');
+  assert.deepEqual(paths,[['POST','/api/relay/requests/r_previous/cancel'],['GET','/api/relay/requests/r_previous']]);
+});
+
 test('ambiguous delivery is held, and offer replies retain provenance for expiry review', async t => {
   const { root, key } = await waiting(t, [{ text: 'Can you travel?' }, { text: 'Other offer deadline?' }, { text: 'Email verification code?' }]);
   let asks = 0;

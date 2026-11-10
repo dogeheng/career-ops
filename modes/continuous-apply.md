@@ -28,7 +28,11 @@ Before asking a missing fact, query the exact question:
 node lean-apply.mjs lookup --job JOB_URL --question 'Exact question text'
 ```
 
-Use confirmed profile facts first. Check saved answers before opening a new question, including approved wording variants. Confirm the scope, expiry and actual form choices before filling. `lookup` can reuse unambiguous QQ facts on the curated list in `lib/lean-question-keys.mjs`. Preserve the distinction between a citizenship country, permanent-residency history and export eligibility. For an unknown required answer, save the draft if supported and write a private questions JSON file:
+Use confirmed profile facts first. Check saved answers before opening a new question, including approved wording variants. Confirm the scope, expiry and actual form choices before filling. `lookup` can reuse unambiguous QQ facts on the curated list in `lib/lean-question-keys.mjs`. Preserve the distinction between a citizenship country, permanent-residency history and export eligibility.
+
+Use `lookup` for user-confirmed form defaults on willingness to relocate, prior applications, employment, relatives at the employer and military service. Choose the equivalent label on the actual form, such as “I am not a veteran” for a confirmed negative answer. Check the live tracker and CV for company-specific history. A confirmed application or prior internship takes precedence over the negative baseline. A relocation preference does not answer separate questions about paying moving costs or meeting a particular start date.
+
+For an unknown required answer, save the draft if supported and write a private questions JSON file.
 
 ```json
 {"questions":[{"text":"Exact employer question","context":"Why a fact is missing","choices":["Yes","No"]}],"draft":{"job_url":"https://employer.example/jobs/123","resume":"output/example.pdf"}}
