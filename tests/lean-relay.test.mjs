@@ -131,6 +131,20 @@ test('existing-only sync retires a resolved default and collects old replies wit
   assert.equal(readState(root).jobs[key].questions[2].relay,undefined);
 });
 
+test('employer sponsorship evidence stays pending locally and is retired from QQ', async t => {
+  const { root, key } = await waiting(t, [
+    { text: 'Does this Annapurna Labs role support future H-1B sponsorship?', relay: { id: 'r_employer', status: 'queued' } },
+    { text: 'Need a company confirmation', audience: 'employer' },
+  ]);
+  let cancelled;
+  const client = { cancel: async id => { cancelled = id; return { status: 'cancelled' }; }, ask: async () => { throw Error('Unexpected QQ question'); } };
+  const result = await syncRelay(root, { client });
+  assert.equal(cancelled, 'r_employer');
+  assert.equal(result.employer_checks, 2);
+  assert.equal(result.fallback, false);
+  assert.equal(readState(root).jobs[key].status, 'waiting');
+});
+
 test('a terminal cancel acknowledgement without a body is checked by request ID', async () => {
   const paths = [];
   const client = makeRelayClient({ base:'http://127.0.0.1:3100', token:'relay_fixture' }, async (url, options) => {

@@ -8,7 +8,8 @@ import { spawn } from 'node:child_process';
 import { getCareerOpsRoot } from './path-resolver.mjs';
 import { isMainModule } from './lib/is-main-module.mjs';
 import { withPipelineLock } from './pipeline-lock.mjs';
-import { readJson, readState, changeState, rememberAnswer, retryJob } from './lib/lean-apply.mjs';
+import { readJson, readState, changeState, lookupAnswer, rememberAnswer, retryJob } from './lib/lean-apply.mjs';
+import { requiresEmployerEvidence } from './lib/lean-form-defaults.mjs';
 
 const code = dirname(fileURLToPath(import.meta.url));
 const runtimePath = root => join(root, 'data/lean/review-runtime.json');
@@ -73,7 +74,11 @@ export async function startReviewServer(root = getCareerOpsRoot(), { launch = ur
         }); return;
       }
       if (req.method === 'GET' && url.pathname === '/api/state') {
-        const s = readState(root), all = Object.values(s.jobs).filter(j => ['waiting', 'working', 'submitting', 'uncertain', 'ready'].includes(j.status));
+        const s = readState(root);
+        const all = Object.values(s.jobs)
+          .filter(j => ['waiting', 'working', 'submitting', 'uncertain', 'ready'].includes(j.status))
+          .map(j => j.status === 'waiting' ? { ...j, questions: j.questions.filter(q => !requiresEmployerEvidence(q) && !q.relay?.reply && !lookupAnswer(s, j, q.text)) } : j)
+          .filter(j => j.status !== 'waiting' || j.questions.length);
         const rank = { waiting: 0, uncertain: 1, submitting: 2, working: 3, ready: 4 }; all.sort((a,b) => rank[a.status]-rank[b.status]);
         const page = Math.max(0, Math.floor(Number(url.searchParams.get('page')) || 0)), size = 20;
         return send(200, { enabled: s.enabled, answers: s.answers.slice(-size), total_answers: s.answers.length,

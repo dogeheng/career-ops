@@ -78,6 +78,19 @@ test('equivalent sponsorship questions stay within the saved country and time fr
   assert.equal(lookupAnswer(state, other, 'Do you require visa sponsorship today?'), null);
 });
 
+test('confirmed US authorization and future sponsorship are read directly from the private profile', t => {
+  const root = fixture(t);
+  mkdirSync(join(root, 'config'));
+  writeFileSync(join(root, 'config/profile.yml'), 'screening:\n  us_work_authorization_type: OPT\n  work_authorization: { US: true }\n  future_sponsorship_required: { US: true }\n');
+  const state = readState(root), us = { key: 'https://jobs.example/us', country: 'US' };
+  assert.equal(lookupAnswer(state, us, 'Are you legally authorized to work in the United States?').value, 'Yes');
+  assert.equal(lookupAnswer(state, us, 'Are you currently on OPT?').value, 'Yes');
+  assert.equal(lookupAnswer(state, us, 'Will you need sponsorship now or in the future to work in the United States?').value, 'Yes');
+  assert.equal(lookupAnswer(state, us, 'Do you require visa sponsorship today?'), null);
+  assert.equal(lookupAnswer(state, us, 'What is the expiration date of your current visa?'), null);
+  assert.equal(lookupAnswer(state, { ...us, country: 'CA' }, 'Do you require visa sponsorship?'), null);
+});
+
 test('confirmed defaults persist across employers while application and internship history take precedence', async t => {
   const root = fixture(t, 3);
   const [first, second, third] = JSON.parse(readFileSync(join(root, 'data/lean/jobs.json'), 'utf8'));
