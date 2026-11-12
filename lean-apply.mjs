@@ -6,6 +6,7 @@ import { changeState, readState, claimNext, setJob, rememberAnswer, lookupAnswer
 import { formDefaultKeys } from './lib/lean-form-defaults.mjs';
 import { openReview } from './lean-review.mjs';
 import { loadRelayConfig, makeRelayClient, syncRelay } from './lib/lean-relay.mjs';
+import { normalizeUrl } from './url-key.mjs';
 
 async function deliverQuestions(root, options, showIdle = false) {
   const relay = await syncRelay(root, options);
@@ -32,7 +33,10 @@ export async function command(args, root = getCareerOpsRoot()) {
     for (const j of Object.values(s.jobs)) counts[j.status] = (counts[j.status] || 0) + 1;
     return { enabled: s.enabled, quantity_limit: null, counts, remembered_answers: s.answers.length };
   }
-  if (action === 'next') return claimNext(root);
+  if (action === 'next') {
+    await syncRelay(root, { existingOnly: true });
+    return claimNext(root);
+  }
   if (action === 'defaults') {
     if (flags['confirmed-by-user'] !== true) throw Error('Explicit user confirmation required');
     const updates = Object.entries(payload());
@@ -71,10 +75,18 @@ export async function command(args, root = getCareerOpsRoot()) {
     const relay = await deliverQuestions(root, { jobKey: job.key }, true);
     return { job: job.key, relay, next: 'Question saved; continue with next job' };
   }
-  if (action === 'submit-intent') return setJob(root, flags.job, flags.claim, 'submitting');
+  if (action === 'submit-intent') {
+    const key = normalizeUrl(flags.job);
+    const pending = () => readState(root).jobs[key]?.questions?.some(q => ['queued', 'sent', 'dispatch_unknown', 'unavailable'].includes(q.relay?.status));
+    if (pending()) {
+      await syncRelay(root, { jobKey: key, existingOnly: true });
+      if (pending()) throw Error('QQ replies could not be synchronized; do not submit until this job is checked');
+    }
+    return setJob(root, key, flags.claim, 'submitting');
+  }
   if (action === 'result') return setJob(root, flags.job, flags.claim, flags.status, flags.file ? payload() : {});
-  if (action === 'retry') return retryJob(root, flags.job, flags['confirmed-not-submitted'] === true);
-  throw Error('node lean-apply.mjs enable --confirmed-by-user | disable | status | next | defaults --file FILE --confirmed-by-user | relay-status | relay-sync [--wait SECONDS] [--existing-only] | lookup --job URL --question TEXT | block --job URL --claim TOKEN --file questions.json | answer --file answer.json --confirmed-by-user | submit-intent --job URL --claim TOKEN | result --job URL --claim TOKEN --status submitted|uncertain|skipped --file evidence.json | retry --job URL --confirmed-not-submitted');
+  if (action === 'retry') return retryJob(root, flags.job, flags['confirmed-not-submitted'] === true, flags['resume-user-skipped'] === true);
+  throw Error('node lean-apply.mjs enable --confirmed-by-user | disable | status | next | defaults --file FILE --confirmed-by-user | relay-status | relay-sync [--wait SECONDS] [--existing-only] | lookup --job URL --question TEXT | block --job URL --claim TOKEN --file questions.json | answer --file answer.json --confirmed-by-user | submit-intent --job URL --claim TOKEN | result --job URL --claim TOKEN --status submitted|uncertain|skipped --file evidence.json | retry --job URL --confirmed-not-submitted [--resume-user-skipped]');
 }
 if (isMainModule(import.meta.url)) {
   try { console.log(JSON.stringify(await command(process.argv.slice(2)), null, 2)); }

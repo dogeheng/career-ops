@@ -419,7 +419,10 @@ Linux/Windows 不运行 macOS 安装器；`apply:review` 使用系统浏览器�
 在 dsh-omni 控制台为 Career Ops 创建应用级令牌，保存到权限为 `0600` 的 `~/.config/dsh-omni/relay.json`。也支持 `DSH_OMNI_RELAY_TOKEN` 和 `DSH_OMNI_RELAY_URL`。本机默认地址为 `http://127.0.0.1:3100`，远程地址使用 HTTPS。新电脑单独配置令牌和网关地址。令牌文件位于仓库和迁移备份之外。
 
 - `npm run apply:relay:status` 只读验证鉴权。
-- `npm run apply:relay` 同步已有回复和未发送的问题。`npm run apply:relay -- --wait 25` 对一个待答请求长轮询一次，然后检查其余请求并退出。定时投递在开始和结束时同步，已排队的问题由 dsh-omni 依次送达。引用原消息或带 `#短码` 回复。
+- `npm run apply:relay` 同步已有回复和未发送的问题。`npm run apply:relay -- --wait 25` 对一个待答请求长轮询一次，然后检查其余请求并退出。定时投递在开始和结束时同步，`next` 领取前也收取已有回复。引用原消息或带 `#短码` 回复。
+- **拒投单个岗位**：引用该岗位尚在待答的 QQ 消息，回复 **`/skip-job`**；不引用时发送 **`#a3f9 /skip-job`**，将 `a3f9` 换成那条消息的实际短码。也接受完整回复「不投递这个岗位」「不投这个岗位」「这个岗位不投了」「跳过这个岗位」「放弃这个岗位」。只匹配这些完整指令，不会把普通 `No`、其他聊天或带否定/解释的句子猜成拒投。
+- 收到上述指令后，该岗位保存私人 `user_skip` 标记、停止入队及提问，并撤销其余待答请求；不会写入通用答案库，也不影响其他岗位。每个岗位同时最多保留一条中继待答，其余题目存在本地；同步时也整理旧的多条排队请求，避免拒投后中继继续自动发出该岗位的下一题。这个限制只针对单岗位提问，不限制发现或投递数量。
+- 指令由本地 `relay-sync`、`next` 或提交前的 `submit-intent` 同步生效，无需常驻模型或轮询进程。提交前若该岗位的旧中继请求无法核实，先暂停提交。已发生的提交不能被指令撤回，仍按真实雇主结果记录；不再为此岗位提问。中继已结束的消息不能再接收回复，请使用当前待答消息。若以后明确希望恢复拒投岗位，核实尚未提交后手动执行 `node lean-apply.mjs retry --job JOB_URL --confirmed-not-submitted --resume-user-skipped`；自动流程不得自行加此恢复参数。
 - 已确认的事实按题目含义和适用范围复用。列入规则的等价问法共用一条 QQ 提问，原始回复和岗位来源保留在本地。填写前核对表单选项和时效，存在冲突时保留待确认。
 - 用户明确确认后，可用 `node lean-apply.mjs defaults --file PRIVATE_JSON --confirmed-by-user` 长期保存搬迁、历史申请、任职、亲属和服役的表单默认答案。JSON 的可选布尔字段为 `relocation`、`prior_application`、`prior_employment`、`current_employment`、`relatives` 和 `military_service`。实际已投和 CV 任职记录优先。使用 `npm run apply:relay -- --existing-only` 收取旧回复并撤销已有答案的旧请求。
 - QQ 不可用或问题未获回答时，待答事项保存在本地。关闭待答窗口后，后台最多空闲 30 秒即退出。事项全部处理完后，窗口等待 5 秒自动收起。展开已确认答案时可继续查看，点击「收起窗口并释放内存」即可释放。分页只限制窗口显示，岗位队列完整保留。
@@ -430,7 +433,7 @@ Linux/Windows 不运行 macOS 安装器；`apply:review` 使用系统浏览器�
 
 ### 换电脑恢复与检查
 
-1. 按“换电脑恢复原有资料”导出/导入私人备份。答案库、待答问题及投递状态在备份内；不要将备份提交到 Git。
+1. 按“换电脑恢复原有资料”导出/导入私人备份。答案库、待答问题、投递状态及用户拒投标记在备份内；不要将备份提交到 Git。
 2. 在新克隆目录重装依赖、Chromium 和 skills；macOS 重新运行 `jobs:native:install`，生成这台电脑的路径与通知组件。不要复制旧机器的 `local/`、LaunchAgent、端口/PID、浏览器 cookies 或凭证。
 3. 重新登录所需浏览器和邮箱，检查身份；重新建立上面的本地 Scheduled 任务。所有代码通过 checkout、skill 绑定和 data-root resolver 找目录，没有个人用户名或固定安装目录。
 4. 运行 `npm run test:lean`、`npm run apply:status` 和 `npm run apply:review`。检查待答问题与答案范围。迁移时处于 working/submitting 的申请会变为 uncertain，先核对雇主结果，不能直接重复提交。

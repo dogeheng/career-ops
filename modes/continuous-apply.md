@@ -24,6 +24,8 @@ Finish a successful ego-browser task with `task.finish({ keep: [] })`. Follow th
 
 Run `node lean-apply.mjs relay-sync` before claiming jobs to collect QQ replies and send any unsent questions. Run it again near the end, with optional `--wait 25` for one bounded long poll. Continue ready jobs if time remains. Each sync exits when it finishes. The dsh-omni server handles its own queue and delivers subsequent questions after the Career Ops run exits.
 
+The user may quote a pending QQ question or include its short code and reply `/skip-job` (or an exact supported Chinese stop phrase such as `不投递这个岗位`). This is a job-specific stop instruction, never an answer to the employer's question. Honor the persisted `user_skip` flag: do not apply, ask further questions, revive the job from shared answers, or run a normal retry. Sync cancels outstanding requests for that job and keeps at most one pending relay question per job, leaving later questions local. Other jobs continue, including those needing the same shared fact. The stop flag migrates with the private application state. Only an explicit later user reversal permits `retry --confirmed-not-submitted --resume-user-skipped`. A stop cannot undo an actual or in-flight submission; preserve the evidence or uncertainty without asking more questions for that job.
+
 Before asking a missing fact, query the exact question:
 
 ```sh
@@ -46,7 +48,7 @@ For an unknown required answer, save the draft if supported and write a private 
 node lean-apply.mjs block --job JOB_URL --claim CLAIM_TOKEN --file PRIVATE_QUESTIONS_JSON
 ```
 
-This saves the job and sends each required question to the dsh-omni QQ relay. `queued` and `sent` are normal pending states. Continue with `next`. Local review is the fallback when delivery is unavailable or settles without an answer. Credentials and verification codes belong in the applicable employer or mailbox flow. Browser control handoffs can end the browser round.
+This saves all questions locally and sends at most one pending question for this job to the dsh-omni QQ relay. A later sync sends the next unresolved question after the previous reply is collected. `queued` and `sent` are normal pending states. Continue with `next`. Local review is the fallback when delivery is unavailable or settles without an answer. Credentials and verification codes belong in the applicable employer or mailbox flow. Browser control handoffs can end the browser round.
 
 QQ replies must quote the original message or include its `#短码`. The relay's request ID links each answer to its source job. Verified equivalents of selected facts share one pending QQ request and reuse its confirmed answer within the applicable scope. Other questions use their saved scope, which defaults to the original job. A time-sensitive or handoff reply is returned in `relay_replies`. Interpret it before filling the form and record the confirmed fact with its expiry. The review window allows the user to choose reuse scope and expiry. If the user answers in chat instead, record the actual answer immediately:
 
@@ -68,7 +70,7 @@ When all mandatory facts are confirmed, the CV is correct and submission is with
 node lean-apply.mjs submit-intent --job JOB_URL --claim CLAIM_TOKEN
 ```
 
-Click Submit exactly once. A timeout is NOT permission to click again. Verify an employer confirmation page, application ID or matching confirmation email. Save local evidence JSON:
+If `submit-intent` fails, do not click Submit. It synchronizes any still-open QQ requests for this job first; a late stop or an unavailable relay must be resolved before proceeding. Click Submit exactly once. A timeout is NOT permission to click again. Verify an employer confirmation page, application ID or matching confirmation email. Save local evidence JSON:
 
 ```json
 {"evidence":{"kind":"confirmation_page","job_url":"https://employer.example/jobs/123","confirmation_url":"https://employer.example/confirmation","text":"Actual employer confirmation text","application_id":"optional"}}

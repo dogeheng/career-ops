@@ -76,7 +76,7 @@ export async function startReviewServer(root = getCareerOpsRoot(), { launch = ur
       if (req.method === 'GET' && url.pathname === '/api/state') {
         const s = readState(root);
         const all = Object.values(s.jobs)
-          .filter(j => ['waiting', 'working', 'submitting', 'uncertain', 'ready'].includes(j.status))
+          .filter(j => !j.user_skip && ['waiting', 'working', 'submitting', 'uncertain', 'ready'].includes(j.status))
           .map(j => j.status === 'waiting' ? { ...j, questions: j.questions.filter(q => !requiresEmployerEvidence(q) && !q.relay?.reply && !lookupAnswer(s, j, q.text)) } : j)
           .filter(j => j.status !== 'waiting' || j.questions.length);
         const rank = { waiting: 0, uncertain: 1, submitting: 2, working: 3, ready: 4 }; all.sort((a,b) => rank[a.status]-rank[b.status]);

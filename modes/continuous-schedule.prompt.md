@@ -10,4 +10,6 @@
 
 手动事实问题走 dsh-omni QQ 中继。按持续投递流程在领取岗位前及本轮结束前同步回复，排队的提问交给中继投递，窗口仅用于本机待答回退。每个岗位结束后释放该次申请使用的浏览器页面。
 
+用户通过当前待答 QQ 消息回复 /skip-job 或「不投递这个岗位」时，只拒投这条消息所属的岗位。遵守 application-state 的 user_skip 标记，不再提问、投递或自行 retry；其他岗位继续。submit-intent 会收取该岗位尚未同步的回复，失败时不得点击 Submit。拒投不能撤回已实际发生的提交，按真实结果保留记录。
+
 无人值守时用页面结构和文字核验，保存确认文本、链接和申请编号。跳过截图、录屏和 CDP 画面采集。ego-browser 成功收尾时调用 task.finish({ keep: [] })。macOS 上检查 pmset -g assertions，若仍有 ego lite 的 Capturing 断言，按持续投递流程释放。

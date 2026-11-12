@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { chromium } from 'playwright';
 import { command } from '../lean-apply.mjs';
-import { readState, claimNext, setJob, changeState, rememberAnswer, lookupAnswer, retryJob } from '../lib/lean-apply.mjs';
+import { readState, claimNext, setJob, changeState, rememberAnswer, lookupAnswer, retryJob, skipJobByUser } from '../lib/lean-apply.mjs';
 import { startReviewServer, launchWindow } from '../lean-review.mjs';
 import { makeBackup, restoreBackup } from '../lean-backup.mjs';
 
@@ -159,6 +159,31 @@ test('private answers migrate to a different root; runtime tokens stay behind an
   restoreBackup(backup,dst,true);const state=readState(dst);
   assert.equal(state.jobs[j.key].status,'uncertain');assert.equal(state.jobs[j.key].claim,undefined);
   assert.equal(lookupAnswer(state,j,'Degree?').value,'MS');assert.notEqual((await claimNext(dst)).job.key,j.key);
+});
+
+test('user stop survives migration, stays out of review and cannot be undone by an ordinary retry', async t => {
+  const src = fixture(t, 2), dst = fixture(t, 0);
+  await enable(src); const job = (await claimNext(src)).job;
+  await changeState(src, state => skipJobByUser(state, state.jobs[job.key], { confirmed: true, source: 'QQ relay code', request_id: 'r_fixture' }));
+  restoreBackup(makeBackup(src), dst, true);
+  assert.equal(readState(dst).jobs[job.key].user_skip.request_id, 'r_fixture');
+  assert.notEqual((await claimNext(dst)).job.key, job.key);
+  await assert.rejects(retryJob(dst, job.key, true), /resume-user-skipped/);
+  const instance = await startReviewServer(dst); t.after(() => instance.close());
+  const { origin, token } = instance.runtime;
+  const visible = await (await fetch(origin + '/api/state', { headers: { Cookie: `career_review=${token}` } })).json();
+  assert.equal(visible.jobs.some(j => j.key === job.key), false);
+  await command(['retry', '--job', job.key, '--confirmed-not-submitted', '--resume-user-skipped'], dst);
+  assert.equal(readState(dst).jobs[job.key].user_skip, undefined);
+  assert.equal((await claimNext(dst)).job.key, job.key);
+});
+
+test('an unverifiable old QQ request prevents submission even after a fresh invocation', async t => {
+  const root = fixture(t, 1); await enable(root);
+  const job = (await claimNext(root)).job;
+  await changeState(root, state => { state.jobs[job.key].questions = [{ text: 'An old question', relay: { id: 'r_missing', status: 'unavailable' } }]; });
+  await assert.rejects(command(['submit-intent', '--job', job.key, '--claim', job.claim], root), /could not be synchronized/);
+  assert.equal(readState(root).jobs[job.key].status, 'working');
 });
 
 test('review API blocks anonymous and cross-origin writes; browser confirmation persists answers without executing markup', async t=>{
