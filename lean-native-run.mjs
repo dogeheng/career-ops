@@ -9,7 +9,7 @@ import { getCareerOpsRoot } from './path-resolver.mjs';
 import { withPipelineLock } from './pipeline-lock.mjs';
 import { writeFileAtomic } from './tracker-utils.mjs';
 import { ingest } from './lean-ingest.mjs';
-import { collectNewCandidates } from './lib/lean-native.mjs';
+import { collectNewCandidates, nativeRuntimeDir } from './lib/lean-native.mjs';
 import { isMainModule } from './lib/is-main-module.mjs';
 
 const CODE_ROOT = dirname(fileURLToPath(import.meta.url));
@@ -18,7 +18,7 @@ const readJson = (path, fallback) => existsSync(path) ? JSON.parse(readFileSync(
 export async function notifyMac({ pending, root }) {
   const config = readJson(join(CODE_ROOT, 'local/native-install.json'), null);
   if (!config?.notifier_app) throw new Error('Native notifier is not installed; run node lean-native-setup.mjs install');
-  const dir = join(root, 'data/lean');
+  const dir = nativeRuntimeDir(root); mkdirSync(dir, { recursive: true, mode: 0o700 });
   const payload = join(dir, 'native-notification.json'), result = join(dir, 'native-notification-result.json');
   const id = createHash('sha256').update(pending.map(j => j.key).sort().join('\n')).digest('hex').slice(0, 24);
   writeFileAtomic(payload, JSON.stringify({ count: pending.length, id, path: join(dir, 'shortlist.md') }));

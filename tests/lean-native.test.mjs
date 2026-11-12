@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { localSchedule, nativeManifest, collectNewCandidates } from '../lib/lean-native.mjs';
+import { localSchedule, nativeManifest, nativeRuntimeDir, collectNewCandidates } from '../lib/lean-native.mjs';
 import { runNative } from '../lean-native-run.mjs';
 
 const job = key => ({ key, url: 'https://jobs.example/' + key, company: 'Example', title: 'New Grad Engineer', country: 'US', source_listed: true, state: 'queued', screen: { status: 'needs-review', questions: [] } });
@@ -19,6 +19,22 @@ test('native job has no resident process, polling, login run or model command', 
   assert.equal(manifest.KeepAlive, false); assert.equal(manifest.RunAtLoad, false);
   assert.equal(manifest.ProcessType, 'Background'); assert.equal(manifest.StartInterval, undefined);
   assert.equal(manifest.StartCalendarInterval.length, 2);
+});
+
+test('native runtime paths can stay outside the protected checkout', () => {
+  const manifest = nativeManifest({ node:'/runtime/node',codeRoot:'/protected/project',dataRoot:'/protected/private',logDir:'/runtime/logs',workingDirectory:'/runtime',zone:'America/New_York' });
+  assert.equal(manifest.WorkingDirectory,'/runtime');
+  assert.equal(manifest.StandardOutPath,'/runtime/logs/stdout.log');
+  assert.equal(manifest.StandardErrorPath,'/runtime/logs/stderr.log');
+  assert.equal(manifest.EnvironmentVariables.CAREER_OPS_ROOT,'/protected/private');
+  assert.deepEqual(manifest.ProgramArguments,['/runtime/node','/protected/project/lean-native-run.mjs']);
+});
+
+test('notification handoff paths avoid Documents and isolate different data roots', () => {
+  const a = nativeRuntimeDir('/private-a', '/fixture-home');
+  assert.ok(a.startsWith('/fixture-home/Library/Caches/CareerOps/'));
+  assert.equal(a, nativeRuntimeDir('/private-a', '/fixture-home'));
+  assert.notEqual(a, nativeRuntimeDir('/private-b', '/fixture-home'));
 });
 test('new-job notifications exclude old, blocked and already tracked positions', () => {
   const skipped = { ...job('blocked'), screen: { status: 'skip', questions: [] } };

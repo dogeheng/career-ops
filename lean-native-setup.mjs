@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { getCareerOpsRoot } from './path-resolver.mjs';
-import { nativeManifest, NATIVE_LABEL } from './lib/lean-native.mjs';
+import { nativeManifest, nativeRuntimeDir, NATIVE_LABEL } from './lib/lean-native.mjs';
 
 const code = dirname(fileURLToPath(import.meta.url)), root = getCareerOpsRoot();
 const dir = join(code, 'local/native'), configPath = join(code, 'local/native-install.json');
@@ -14,7 +14,8 @@ const domain = `gui/${process.getuid?.()}`;
 const run = (name, args, opts = {}) => execFileSync(name, args, { encoding: 'utf8', ...opts });
 function writePlist(path, object) { run('/usr/bin/plutil', ['-convert', 'xml1', '-o', path, '-'], { input: JSON.stringify(object) }); }
 function notifierCommand(app, action) {
-  const result = join(dir, 'notifier-result.json'); rmSync(result, { force: true });
+  const runtime = nativeRuntimeDir(root); mkdirSync(runtime, { recursive: true, mode: 0o700 });
+  const result = join(runtime, 'notifier-result.json'); rmSync(result, { force: true });
   run('/usr/bin/open', ['-n', '-W', app, '--args', action, '--result', result], { timeout: 45_000 });
   return existsSync(result) ? JSON.parse(readFileSync(result, 'utf8')) : { authorized: false, error: 'No response from notification helper' };
 }
@@ -27,13 +28,16 @@ try {
     const app = join(dir, 'CareerOps Notifier.app'), contents = join(app, 'Contents');
     mkdirSync(join(contents, 'MacOS'), { recursive: true });
     const binary = join(contents, 'MacOS/CareerOpsNotifier');
-    run('/usr/bin/xcrun', ['swiftc', '-O', '-swift-version', '5', '-module-cache-path', join(dir, 'swift-cache'), join(code, 'scripts/lean-notifier.swift'), '-o', binary, '-framework', 'AppKit', '-framework', 'UserNotifications', '-framework', 'WebKit'], { timeout: 120_000 });
+    const architecture = process.arch === 'arm64' ? 'arm64' : 'x86_64';
+    run('/usr/bin/xcrun', ['swiftc', '-O', '-swift-version', '5', '-target', `${architecture}-apple-macosx13.0`, '-module-cache-path', join(dir, 'swift-cache'), join(code, 'scripts/lean-notifier.swift'), '-o', binary, '-framework', 'AppKit', '-framework', 'UserNotifications', '-framework', 'WebKit'], { timeout: 120_000 });
     writePlist(join(contents, 'Info.plist'), { CFBundleIdentifier: 'io.careerops.local.notifier', CFBundleExecutable: 'CareerOpsNotifier', CFBundleName: 'CareerOps Notifier', CFBundleDisplayName: 'CareerOps Notifier', CFBundleVersion: '1', CFBundleShortVersionString: '1.0', CFBundlePackageType: 'APPL', LSUIElement: true, NSPrincipalClass: 'NSApplication' });
     run('/usr/bin/codesign', ['--force', '--deep', '--sign', '-', app]);
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const manifest = nativeManifest({ node: process.execPath, codeRoot: code, dataRoot: root, logDir: dir, zone });
+    const logDir = join(homedir(), 'Library/Logs/CareerOps');
+    mkdirSync(logDir, { recursive: true });
+    const manifest = nativeManifest({ node: process.execPath, codeRoot: code, dataRoot: root, logDir, zone, workingDirectory: homedir() });
     writePlist(plist, manifest);
-    const config = { node: process.execPath, code_root: code, data_root: root, system_zone_at_install: zone, requested_zone: 'America/New_York', calendar: manifest.StartCalendarInterval, notifier_app: app, plist };
+    const config = { node: process.execPath, code_root: code, data_root: root, log_dir: logDir, system_zone_at_install: zone, requested_zone: 'America/New_York', calendar: manifest.StartCalendarInterval, notifier_app: app, plist };
     writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
     spawnSync('/bin/launchctl', ['bootout', domain + '/' + NATIVE_LABEL], { encoding: 'utf8' });
     run('/bin/launchctl', ['bootstrap', domain, plist]);
