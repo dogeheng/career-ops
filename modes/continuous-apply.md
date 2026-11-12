@@ -4,6 +4,8 @@ Use only when the user requests automatic applications and `node lean-apply.mjs 
 
 Resolve the code root from the installed career-ops skill's `installation.json` or the current checkout, and resolve the private data root with `path-resolver.mjs`. Run the commands below in the code root. Read profile.yml, cv.md and _custom.md once. Use Sol, one agent, no eval, scores, additional models or worker fan-out.
 
+For a scheduled run, first execute `node lean-schedule.mjs check` from the task's initial working directory. Its selected local project must be this checkout. If the check fails, report the project configuration issue before processing jobs. `node lean-schedule.mjs plan` generates the current computer's project directory and generic task settings.
+
 ## Process the entire suitable queue
 
 There is no discovery, per-run or daily application count limit. `node lean-apply.mjs next` atomically claims ONE job, with its `key` and `claim` token, without loading the whole queue into model context. Repeat after each completed, skipped or blocked job until no job remains or the host session/quota ends. Do not stop at three, five or ten jobs. A host time/context limit is not a user quantity cap: persist state and resume in the next scheduled run. Do not leave a sleeping model loop or exhaust tokens polling for answers.
